@@ -43,9 +43,9 @@ class MetricAggregator:
 
         metrics = [hig, mig, dci, mod, sap, unsup, fl, ds]
 
-        if self.final:
-            ti = TrueIndep(self.ds, val_ds=self.val_ds, nactions=self.nactions, num_epochs=self.nindep_epochs, ntrue_actions=self.ntrue_actions, verbose=self.verbose)
-            metrics.append(ti)
+        # if self.final:
+            # ti = TrueIndep(self.ds, val_ds=self.val_ds, nactions=self.nactions, num_epochs=self.nindep_epochs, ntrue_actions=self.ntrue_actions, verbose=self.verbose)
+            # metrics.append(ti)
         return metrics
 
     def __call__(self):
@@ -55,10 +55,11 @@ class MetricAggregator:
             for metric in self.metrics:
                 if self.verbose:
                     print("Computing metric: {}".format(metric))
-                try:
-                    outputs.update(metric(self.model))
-                except:
-                    warnings.warn('Failed to compute metric: {}'.format(metric))
+                # try:
+                outputs.update(metric(self.model))
+                # except:
+                    # warnings.warn('Failed to compute metric: {}'.format(metric))
                 gc.collect()
+            print('outputs:', outputs)
             return outputs
 

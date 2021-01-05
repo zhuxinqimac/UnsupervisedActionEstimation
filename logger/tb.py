@@ -32,6 +32,7 @@ class Logger:
         """
         self.version = version if version is not None else self.guess_version(dir)
         self.summary_writer = SummaryWriter(os.path.join(dir, 'version_{}'.format(self.version)))
+        self.log_txt = os.path.join(dir, 'version_{}'.format(self.version), 'log_metrics.txt')
 
     def guess_version(self, dir):
         os.makedirs(dir, exist_ok=True)
@@ -50,6 +51,10 @@ class Logger:
 
     def write_dict(self, vals, global_step=0):
         for k, v in vals.items():
+            # print('k:', k)
+            # print('v:', v)
+            with open(self.log_txt, 'a') as f:
+                f.write(str(k) + ' : ' + str(v.cpu().numpy().round(4)) + '\n')
             self.writer.add_scalar(k, v, global_step=global_step)
 
     @property

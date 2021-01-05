@@ -4,7 +4,7 @@ import torch
 
 
 def train(args, epochs, trainloader, valloader, model, optimiser, loss_fn, logger=None, metric_list=None, cuda=True):
-    pb = tqdm(total=epochs, unit_scale=True, smoothing=0.1, ncols=150)
+    pb = tqdm(total=epochs, unit_scale=True, smoothing=0.1, ncols=70)
     update_frac = 1./float(len(trainloader) + len(valloader))
     global_step = 0 if not hasattr(args, 'global_step') or args.global_step is None else args.global_step
     loss, val_loss = torch.tensor(0), torch.tensor(0)
@@ -14,6 +14,7 @@ def train(args, epochs, trainloader, valloader, model, optimiser, loss_fn, logge
         for t, data in enumerate(trainloader):
             optimiser.zero_grad()
             model.train()
+            # print('model.act_params:', model.act_params)
             data = to_cuda(data) if cuda else data
             out = model.train_step(data, t, loss_fn)
             loss = out['loss']

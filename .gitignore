@@ -143,3 +143,12 @@ cython_debug/
 # Logs and images
 logs/
 images/
+
+# vim
+.*.sw*
+*/.*.sw*
+*/*/.*.sw*
+
+# script
+*.sh
+*/*.sh

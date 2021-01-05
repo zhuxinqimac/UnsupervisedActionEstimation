@@ -132,7 +132,8 @@ class PairSprites(dSprites):
             noise_name (str): Name of noise to add, default None
             output_targets (bool): If True output image pair corresponding to symmetry action. If False, standard dSprites.
         """
-        super().__init__(root, download, transform, None)
+        # super().__init__(root, download, transform, None)
+        super().__init__(root, download, transform, 2)
         self.factor = [1, 2, 3, 4]
         self.offset = offset
         self.max_varied = max_varied

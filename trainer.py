@@ -2,6 +2,7 @@ import gc
 import os
 
 import torch
+from torch.nn import functional as F
 
 from datasets.datasets import datasets, set_to_loader, dataset_meta
 from logger.tb import Logger, write_args
@@ -50,7 +51,10 @@ def run(args):
         optimiser = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
 
     paired = True if args.model in ['rgrvae', 'forward', 'dforward'] else False
-    loss_fn = lambda x_hat, x: (x_hat.sigmoid() - x).pow(2).sum() / x.shape[0]
+    if args.recons_loss_type == 'l2':
+        loss_fn = lambda x_hat, x: (x_hat.sigmoid() - x).pow(2).sum() / x.shape[0]
+    else:
+        loss_fn = lambda x_hat, x: F.binary_cross_entropy_with_logits(x_hat.view(-1, 64*64), x.view(-1, 64*64), reduction='sum') / x.shape[0]
     metric_list = MetricAggregator(valds.dataset, 1000, model, paired) if args.metrics else None
 
     version = None
@@ -59,7 +63,8 @@ def run(args):
             if 'version_' in a:
                 version = a.split('_')[-1]
 
-    logger = Logger('./logs/', version)
+    # logger = Logger('./logs/', version)
+    logger = Logger(args.log_path, version)
     param_count = count_parameters(model)
     logger.writer.add_text('parameters/number_params', param_count.replace('\n', '\n\n'), 0)
     print(param_count)

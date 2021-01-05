@@ -68,10 +68,10 @@ def _compute_dci(mus_train, ys_train, mus_test, ys_test):
       mus_train, ys_train, mus_test, ys_test)
   assert importance_matrix.shape[0] == mus_train.shape[0]
   assert importance_matrix.shape[1] == ys_train.shape[0]
-  scores["dmetric/informativeness_train"] = train_err
-  scores["dmetric/informativeness_test"] = test_err
-  scores["dmetric/disentanglement"] = disentanglement(importance_matrix)
-  scores["dmetric/completeness"] = completeness(importance_matrix)
+  scores["dmetric/dci_informativeness_train"] = train_err
+  scores["dmetric/dci_informativeness_test"] = test_err
+  scores["dmetric/dci_disentanglement"] = disentanglement(importance_matrix)
+  scores["dmetric/dci_completeness"] = completeness(importance_matrix)
   return scores
 
 

@@ -35,6 +35,7 @@ class UnsupervisedMetrics:
         self.paired = paired
 
     def __call__(self, model):
+        print('calc UnsupervisedMetrics.')
         rep_fn = lambda x: model.unwrap(model.encode(x))[0]
         scores = {}
 
@@ -58,6 +59,7 @@ class UnsupervisedMetrics:
         np.fill_diagonal(mutual_info_matrix, 0)
         mutual_info_score = np.sum(mutual_info_matrix) / (num_codes ** 2 - num_codes)
         scores["dmetric/mutual_info_score"] = mutual_info_score
+        print('scores:', scores)
         return scores
 
 

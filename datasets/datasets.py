@@ -52,7 +52,7 @@ def set_to_loader(trainds, valds, args):
 @fix_data_path
 def sprites(args):
     train_transform, test_transform = transforms[args.dataset](args)
-    output_targets = True if args.model in ['forward', 'rgrvae'] else False
+    output_targets = True if args.model in ['forward', 'rgrvae', 'lie_group_action', 'lie_group_action_simple'] else False
     ds = PairSprites(args.data_path, download=False, transform=train_transform, wrapping=True, offset=args.offset,
                      noise_name=args.noise_name, output_targets=output_targets)
     return ds
@@ -63,7 +63,7 @@ def sprites(args):
 def forward_vae_ds(args):
     import os
     train_transform, test_transform = transforms[args.dataset](args)
-    output_targets = True if args.model in ['forward', 'rgrvae'] else False
+    output_targets = True if args.model in ['forward', 'rgrvae', 'lie_group_action', 'lie_group_action_simple'] else False
     mean_channels = True
 
     images_path = os.path.join(args.data_path, 'inputs.npy')
@@ -74,7 +74,7 @@ def forward_vae_ds(args):
 
 
 _default_paths = {
-    'flatland': '/home/matt/PycharmProjects/PyTorchCode/NeurIPS19-SBDRL/code/learn_4_dim_linear_disentangled_representation/flatland/flat_game',
+    'flatland': '/home/xqzhu/repo/NeurIPS19-SBDRL/code/learn_4_dim_linear_disentangled_representation',
     'dsprites': '',
 }
 
