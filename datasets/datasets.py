@@ -74,7 +74,7 @@ def forward_vae_ds(args):
 
 
 _default_paths = {
-    'flatland': '/home/xqzhu/repo/NeurIPS19-SBDRL/code/learn_4_dim_linear_disentangled_representation',
+    'flatland': '',
     'dsprites': '',
 }
 
