@@ -11,6 +11,7 @@ from metrics.aggregator import MetricAggregator
 from models.models import models
 from models.utils import count_parameters, model_loader
 from trainin_loop import train
+from trainin_loop_lie import train_lie
 
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = True
@@ -38,6 +39,14 @@ def run(args):
         model_state, _ = model_loader(args.base_model_path)
         model.load_vae_state(model_state)
 
+    # if args.model == 'lie_group_rl' and not args.supervised_train:
+        # print('Using separate optimisers for each sub module.')
+        # if args.policy_learning_rate is None:
+            # args.policy_learning_rate = args.learning_rate
+        # optimiser_ls = [torch.optim.Adam([{'params': model.vae_params(), 'lr': args.learning_rate * 1},
+                                          # {'params': model.action_params(), 'lr': args.policy_learning_rate * 1}]),
+                        # torch.optim.Adam(model.group_params(), lr=args.group_learning_rate)]
+    # else:
     try:
         if args.policy_learning_rate is None:
             args.policy_learning_rate = args.learning_rate
@@ -54,7 +63,7 @@ def run(args):
     if args.recons_loss_type == 'l2':
         loss_fn = lambda x_hat, x: (x_hat.sigmoid() - x).pow(2).sum() / x.shape[0]
     else:
-        loss_fn = lambda x_hat, x: F.binary_cross_entropy_with_logits(x_hat.view(-1, 64*64), x.view(-1, 64*64), reduction='sum') / x.shape[0]
+        loss_fn = lambda x_hat, x: F.binary_cross_entropy_with_logits(x_hat.view(x_hat.size(0), -1), x.view(x.size(0), -1), reduction='sum') / x.shape[0]
     metric_list = MetricAggregator(valds.dataset, 1000, model, paired) if args.metrics else None
 
     version = None
@@ -71,12 +80,15 @@ def run(args):
 
     write_args(args, logger)
     if not args.evaluate:
+        # if args.model == 'lie_group_rl' and not args.supervised_train:
+            # out = train_lie(args, args.epochs, trainloader, valloader, model, optimiser_ls, loss_fn, logger, metric_list, True)
+        # else:
         out = train(args, args.epochs, trainloader, valloader, model, optimiser, loss_fn, logger, metric_list, True)
     else:
         out = {}
 
     if args.evaluate or args.end_metrics:
-        log_list = MetricAggregator(trainds.dataset, valds.dataset, 1000, model, paired, args.latents, ntrue_actions=args.latents, final=True)()
+        log_list = MetricAggregator(trainds.dataset, valds.dataset, 1000, model, paired, args.latents, ntrue_actions=args.latents, final=True, fixed_shape=args.fixed_shape)()
         mean_logs = mean_log_list([log_list, ])
         logger.write_dict(mean_logs, model.global_step+1) if logger is not None else None
 

@@ -8,7 +8,7 @@
 
 # --- File Name: lie_vae.py
 # --- Creation Date: 25-12-2020
-# --- Last Modified: Tue 05 Jan 2021 16:56:56 AEDT
+# --- Last Modified: Thu 14 Jan 2021 19:17:49 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -26,7 +26,7 @@ from logger.imaging import ShowRecon, LatentWalk, ReconToTb
 
 
 class LieCelebEncoder(nn.Module):
-    def __init__(self, subgroup_sizes_ls, subspace_sizes_ls, nc):
+    def __init__(self, subgroup_sizes_ls, subspace_sizes_ls, nc, dataset):
         """ Encoder network for lie_group_vae.
         Args:
             subgroup_sizes_ls (list of int): Sizes of subgroup_feats, must be square numbers.
@@ -38,27 +38,60 @@ class LieCelebEncoder(nn.Module):
         self.subspace_sizes_ls = subspace_sizes_ls
         self.group_feats_size = sum(self.subgroup_sizes_ls)
         self.nc = nc
-        self.prior_group = nn.Sequential(nn.Conv2d(self.nc, 32, 4, 2, 1),
-                                         nn.ReLU(True),
-                                         nn.Conv2d(32, 32, 4, 2, 1),
-                                         nn.ReLU(True),
-                                         nn.Conv2d(32, 64, 4, 2, 1),
-                                         nn.ReLU(True),
-                                         nn.Conv2d(64, 64, 4, 2, 1),
-                                         nn.ReLU(True), Flatten(),
-                                         nn.Linear(1024, 256), nn.ReLU(),
-                                         nn.Linear(256, self.group_feats_size))
+        if dataset == 'teapot' or dataset == 'teapot_nocolor':
+            self.prior_group = nn.Sequential(
+                nn.Conv2d(self.nc, 32, 4, 2, 1), nn.ReLU(True), # 64
+                nn.Conv2d(32, 32, 4, 2, 1), nn.ReLU(True), # 32
+                nn.Conv2d(32, 64, 4, 2, 1), nn.ReLU(True), # 16
+                nn.Conv2d(64, 64, 4, 2, 1), nn.ReLU(True), # 8
+                nn.Conv2d(64, 64, 4, 2, 1), nn.ReLU(True), # 4
+                Flatten(),
+                nn.Linear(64 * 4 * 4, 256), nn.ReLU(True),
+                nn.Linear(256, self.group_feats_size))
+            # self.prior_group = nn.Sequential(
+                # nn.Conv2d(self.nc, 16, 8, stride=4), nn.ReLU(True),
+                # nn.Conv2d(16, 32, 4, stride=2), nn.ReLU(True),
+                # nn.Conv2d(32, 32, 3, stride=1), nn.ReLU(True), Flatten(),
+                # nn.Linear(32 * 7 * 7, 256), nn.ReLU(True),
+                # nn.Linear(256, self.group_feats_size))
+        else:
+            self.prior_group = nn.Sequential(
+                nn.Conv2d(self.nc, 32, 4, 2, 1), nn.ReLU(True),
+                nn.Conv2d(32, 32, 4, 2, 1), nn.ReLU(True),
+                nn.Conv2d(32, 64, 4, 2, 1), nn.ReLU(True),
+                nn.Conv2d(64, 64, 4, 2, 1), nn.ReLU(True), Flatten(),
+                nn.Linear(1024, 256), nn.ReLU(),
+                nn.Linear(256, self.group_feats_size))
         self.to_means = nn.ModuleList([])
         self.to_logvar = nn.ModuleList([])
         for i, subgroup_size_i in enumerate(self.subgroup_sizes_ls):
             self.to_means.append(
-                nn.Linear(subgroup_size_i, subspace_sizes_ls[i]))
+                nn.Sequential(
+                    nn.Linear(subgroup_size_i, subgroup_size_i * 4),
+                    nn.ReLU(True),
+                    nn.Linear(subgroup_size_i * 4, subspace_sizes_ls[i]),
+                ))
             self.to_logvar.append(
-                nn.Linear(subgroup_size_i, subspace_sizes_ls[i]))
+                nn.Sequential(
+                    nn.Linear(subgroup_size_i, subgroup_size_i * 4),
+                    nn.ReLU(True),
+                    nn.Linear(subgroup_size_i * 4, subspace_sizes_ls[i]),
+                ))
 
     def to_gfeat(self, x):
         group_feats = self.prior_group(x)
         return group_feats
+
+    def gfeat_to_lat(self, group_feats):
+        b_idx = 0
+        means_ls, logvars_ls = [], []
+        for i, subgroup_size_i in enumerate(self.subgroup_sizes_ls):
+            e_idx = b_idx + subgroup_size_i
+            means_ls.append(self.to_means[i](group_feats[:, b_idx:e_idx]))
+            logvars_ls.append(self.to_logvar[i](group_feats[:, b_idx:e_idx]))
+            b_idx = e_idx
+        outs = torch.cat(means_ls + logvars_ls, dim=-1)
+        return outs
 
     def forward(self, x):
         group_feats = self.prior_group(x)
@@ -78,6 +111,7 @@ class LieCelebDecoder(nn.Module):
                  subgroup_sizes_ls,
                  subspace_sizes_ls,
                  lie_alg_init_type_ls,
+                 dataset,
                  hy_ncut=0,
                  lie_alg_init_scale=0.001,
                  normalize_alg=False,
@@ -118,16 +152,29 @@ class LieCelebDecoder(nn.Module):
                 self.lie_alg_basis_ls.append(lie_alg_tmp)
                 self.lie_var_ls.append(var_tmp)
 
-        self.post_exp = nn.Sequential(nn.Linear(self.group_feats_size, 256),
-                                      nn.ReLU(True), nn.Linear(256, 1024),
-                                      nn.ReLU(True), View(64, 4, 4),
-                                      nn.ConvTranspose2d(64, 64, 4, 2, 1),
-                                      nn.ReLU(True),
-                                      nn.ConvTranspose2d(64, 32, 4, 2, 1),
-                                      nn.ReLU(True),
-                                      nn.ConvTranspose2d(32, 32, 4, 2, 1),
-                                      nn.ReLU(True),
-                                      nn.ConvTranspose2d(32, self.nc, 4, 2, 1))
+        if dataset == 'teapot' or dataset == 'teapot_nocolor':
+            self.post_exp = nn.Sequential(
+                nn.Linear(self.group_feats_size, 256),
+                nn.Linear(256, 64 * 4 * 4),
+                View(64, 4, 4),
+                nn.ConvTranspose2d(64, 64, 4, 2, 1),
+                nn.ReLU(True),
+                nn.ConvTranspose2d(64, 64, 4, 2, 1),
+                nn.ReLU(True),
+                nn.ConvTranspose2d(64, 32, 4, 2, 1),
+                nn.ReLU(True),
+                nn.ConvTranspose2d(32, 32, 4, 2, 1),
+                nn.ReLU(True),
+                nn.ConvTranspose2d(32, self.nc, 4, 2, 1),
+            )
+        else:
+            self.post_exp = nn.Sequential(
+                nn.Linear(self.group_feats_size, 256), nn.ReLU(True),
+                nn.Linear(256, 1024), nn.ReLU(True), View(64, 4, 4),
+                nn.ConvTranspose2d(64, 64, 4, 2, 1), nn.ReLU(True),
+                nn.ConvTranspose2d(64, 32, 4, 2, 1), nn.ReLU(True),
+                nn.ConvTranspose2d(32, 32, 4, 2, 1), nn.ReLU(True),
+                nn.ConvTranspose2d(32, self.nc, 4, 2, 1))
 
     def split_latents(self, x):
         # x: [b, dim]
@@ -190,9 +237,8 @@ class LieCelebDecoder(nn.Module):
             lie_alg_basis = lie_alg_basis * lie_var[..., np.newaxis, np.
                                                     newaxis]
 
-        lie_group = torch.eye(mat_dim,
-                              dtype=x.dtype)[np.newaxis,
-                                             ...]  # [1, mat_dim, mat_dim]
+        lie_group = torch.eye(mat_dim, dtype=x.dtype).to(
+            x.device)[np.newaxis, ...]  # [1, mat_dim, mat_dim]
         lie_alg = 0.
         latents_in_cut_ls = self.split_latents(x)  # [x0, x1, ...]
         for masked_latent in latents_in_cut_ls:
@@ -262,11 +308,11 @@ class LieCeleb(VAE):
         super().__init__(
             # beta_celeb_encoder(args),
             LieCelebEncoder(args.subgroup_sizes_ls, args.subspace_sizes_ls,
-                            args.nc),
+                            args.nc, args.dataset),
             LieCelebDecoder(args.subgroup_sizes_ls, args.subspace_sizes_ls,
-                            args.lie_alg_init_type_ls, args.hy_ncut,
-                            args.lie_alg_init_scale, args.normalize_alg,
-                            args.use_alg_var, args.nc),
+                            args.lie_alg_init_type_ls, args.dataset,
+                            args.hy_ncut, args.lie_alg_init_scale,
+                            args.normalize_alg, args.use_alg_var, args.nc),
             args.beta,
             args.capacity,
             args.capacity_leadin)
@@ -298,18 +344,19 @@ class LieCeleb(VAE):
     def decode_full(self, z):
         return self.decoder(z)
 
-    def calc_basis_mul_ij(self, lie_alg_basis_ls):
+    def calc_basis_mul_ij(self, lie_alg_basis_ls_param):
+        lie_alg_basis_ls = [alg_tmp * 1. for alg_tmp in lie_alg_basis_ls_param]
         lie_alg_basis = torch.cat(lie_alg_basis_ls,
                                   dim=0)[np.newaxis,
                                          ...]  # [1, lat_dim, mat_dim, mat_dim]
-        _, lat_dim, mat_dim, _ = lie_alg_basis.get_shape().as_list()
+        _, lat_dim, mat_dim, _ = list(lie_alg_basis.size())
         lie_alg_basis_col = lie_alg_basis.view(lat_dim, 1, mat_dim, mat_dim)
         lie_alg_basis_outer_mul = torch.matmul(
             lie_alg_basis,
             lie_alg_basis_col)  # [lat_dim, lat_dim, mat_dim, mat_dim]
         hessian_mask = 1. - torch.eye(
-            lat_dim,
-            dtype=lie_alg_basis_outer_mul.dtype)[:, :, np.newaxis, np.newaxis]
+            lat_dim, dtype=lie_alg_basis_outer_mul.dtype
+        )[:, :, np.newaxis, np.newaxis].to(lie_alg_basis_outer_mul.device)
         lie_alg_basis_mul_ij = lie_alg_basis_outer_mul * hessian_mask  # XY
         return lie_alg_basis_mul_ij
 
@@ -333,8 +380,7 @@ class LieCeleb(VAE):
             e_idx = b_idx + subspace_size
             if subspace_size > 1:
                 mat_dim = int(math.sqrt(self.subgroup_sizes_ls[i]))
-                assert lie_alg_basis_ls[b_idx].get_shape().as_list(
-                )[-1] == mat_dim
+                assert list(lie_alg_basis_ls[b_idx].size())[-1] == mat_dim
                 lie_alg_basis_mul_ij = self.calc_basis_mul_ij(
                     lie_alg_basis_ls[b_idx:e_idx])  # XY
                 hessian_loss += self.calc_hessian_loss(lie_alg_basis_mul_ij, i)
@@ -363,9 +409,9 @@ class LieCeleb(VAE):
         # rand_mask = torch.rand(mu.size()) < self.cycle_prob
         # rand_add = np.random.uniform()
         # if rand_add > 0.5:
-            # mu_cycled[rand_mask] = mu[rand_mask] + limit
+        # mu_cycled[rand_mask] = mu[rand_mask] + limit
         # else:
-            # mu_cycled[rand_mask] = mu[rand_mask] - limit
+        # mu_cycled[rand_mask] = mu[rand_mask] - limit
         return mu_cycled
 
     def main_step(self, batch, batch_nb, loss_fn):
@@ -389,7 +435,7 @@ class LieCeleb(VAE):
         if self.training:
             rand_n = np.random.uniform()
             # rec_loss = loss_fn(x_hat, x)
-            if rand_n > self.forward_eg_prob:
+            if rand_n < self.forward_eg_prob:
                 rec_loss = loss_fn(x_eg_hat, x)
             else:
                 rec_loss = loss_fn(x_hat, x)
@@ -409,6 +455,8 @@ class LieCeleb(VAE):
         loss = rec_loss + beta_kl + group_loss
         state = self.make_state(batch_nb, x_hat, x, y, mu, lv, z)
         state.update({
+            'x_eg': group_feats_E,
+            'x_gg': group_feats_G,
             'x_eg_rec': x_eg_hat,
             'x_gg_rec': x_gg_hat,
             'x_z_rec': x_hat,

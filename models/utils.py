@@ -9,8 +9,9 @@ import os
 def sprites_label_to_action(label):
     if label.shape[-1] > 1 and len(list(label.shape)) > 1:
         actions = torch.argmax(label.abs(), -1)
-        actions = actions * 2
-        actions[(label[:, actions // 2] < 0).any(dim=-1)] += 1
+        # actions = actions * 2
+        # actions[(label[:, actions // 2] < 0).any(dim=-1)] += 1
+        actions[(label[:, actions] < 0).any(dim=-1)] += label.shape[-1]
         return actions
     return label
 

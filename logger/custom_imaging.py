@@ -8,7 +8,7 @@
 
 # --- File Name: custom_imaging.py
 # --- Creation Date: 31-12-2020
-# --- Last Modified: Sat 02 Jan 2021 19:25:52 AEDT
+# --- Last Modified: Fri 15 Jan 2021 22:31:25 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -195,9 +195,10 @@ class GroupWalk(Imager):
         for ac in range(self.nactions):
             row_act = []
             gz = state['gz2'][:1]
+            h = state['x1'].size(-1)
             for i, action in enumerate(range(self.n_to_show)):
                 img = model.vae.decode_gfeat(gz).sigmoid().detach().view(
-                    -1, state['x1'].shape[1], 64, 64).cpu().numpy()
+                    -1, state['x1'].shape[1], h, h).cpu().numpy()
                 row_act.append(img)
                 next_gz = model.apply_act(
                     gz,
@@ -222,7 +223,64 @@ class GroupWalk(Imager):
             plt.savefig('./images/lie_action_group_walk.png')
         else:
             img = make_grid(torch.tensor(np.array(imgs)).view(
-                -1, state['x1'].shape[1], 64, 64),
+                -1, state['x1'].shape[1], h, h),
+                            self.n_to_show,
+                            pad_value=1)
+            self.logger.writer.add_image('lie_group_action/group_walk', img,
+                                         global_step)
+
+
+class GroupWalkRL(Imager):
+    def __init__(self, logger, nactions=4, n_to_show=15, to_tb=True):
+        self.logger = logger
+        self.nactions = nactions
+        self.n_to_show = n_to_show
+        self.to_tb = to_tb
+
+    def __call__(self, model, state, global_step=0):
+        imgs = []
+        for ac in range(self.nactions):
+            row_act = []
+            gz = state['x_eg'][:1]
+            h = state['x1'].size(-1)
+            for i, action in enumerate(range(self.n_to_show)):
+                img = model.vae.decode_gfeat(gz).sigmoid().detach()
+                row_act.append(
+                    img.view(-1, state['x1'].shape[1], h, h).cpu().numpy())
+                # next_gz = model.groups.apply_action(
+                    # gz,
+                    # torch.tensor(ac, device=gz.device).view(1, 1))['new_z']
+                next_gz = model.groups.apply_action(
+                    model.vae.encode_gfeat(img),
+                    torch.tensor(ac,
+                                 device=gz.device).view(1,
+                                                        1))['new_z'].detach()
+                # next_gz = model.groups.apply_action_with_x(
+                    # model.vae.encode_gfeat(img),
+                    # torch.tensor(ac,
+                                 # device=gz.device).view(1,
+                                                        # 1), img)['new_z'].detach()
+                gz = next_gz
+            imgs.append(row_act)
+
+        if not self.to_tb:
+            plt.close()
+            fig, ax = plt.subplots(nrows=self.nactions,
+                                   ncols=self.n_to_show,
+                                   figsize=(self.n_to_show, self.nactions))
+            # fig.subplots_adjust(left=0.125, right=0.9, bottom=0.25, top=0.75, wspace=0.1, hspace=0.1)
+            for k, i in enumerate(ax):
+                for j, axis in enumerate(i):
+                    axis.axis('off')
+                    axis.imshow(imgs[k][j][0].transpose(1, 2, 0))
+                    axis.set_xticklabels([])
+                    axis.set_yticklabels([])
+                    # axis.set_aspect(1)
+            plt.tight_layout()
+            plt.savefig('./images/lie_action_group_walk.png')
+        else:
+            img = make_grid(torch.tensor(np.array(imgs)).view(
+                -1, state['x1'].shape[1], h, h),
                             self.n_to_show,
                             pad_value=1)
             self.logger.writer.add_image('lie_group_action/group_walk', img,

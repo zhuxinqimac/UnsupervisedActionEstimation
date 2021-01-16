@@ -6,8 +6,9 @@ from utils import _str_to_list_of_int, _str_to_list_of_str, _str_to_bool
 parser = argparse.ArgumentParser('Disentanglement')
 # Basic Training Args
 parser.add_argument('--epochs', default=50, type=int)
-parser.add_argument('--model', default='forward', type=str, choices=['beta_shapes', 'beta_celeb', 'forward', 'rgrvae', 'dip_vae_i', 'dip_vae_ii', 'beta_forward', 'dforward', 'lie_group', 'lie_group_action', 'lie_group_action_simple'])
-parser.add_argument('--dataset', default='forward', type=str, choices=['flatland', 'dsprites'])
+parser.add_argument('--model', default='forward', type=str, choices=['beta_shapes', 'beta_celeb', 'forward', 'rgrvae', 'dip_vae_i', 'dip_vae_ii', 'beta_forward', 'dforward', 'lie_group', 'lie_group_action', 'lie_group_action_simple', 'lie_group_rl'])
+parser.add_argument('--dataset', default='flatland', type=str, choices=['flatland', 'dsprites', 'teapot', 'teapot_nocolor'])
+parser.add_argument('--fixed_shape', default=None, type=int, help='Fixed shape in dsprites. None for not fixed.')
 parser.add_argument('--data-path', default=None, type=str, help='Path to dataset root')
 parser.add_argument('--latents', default=4, type=int, help='Number of latents')
 parser.add_argument('--batch-size', default=128, type=int)
@@ -76,6 +77,10 @@ parser.add_argument('--recons_loss_type', default='l2', choices=['l2', 'bce'], t
 # Lie Group Action Model
 parser.add_argument('--num_actions', default=4, type=int, help='Hyper-param for number of actions in LieAction.')
 parser.add_argument('--loss_type', default='on_group', type=str, help='Loss type.')
+
+# Lie Group RL Model
+parser.add_argument('--supervised_train', default=False, type=_str_to_bool, help='If use action supervision in LieGroupVAERL.')
+parser.add_argument('--hy_st', default=0., type=float, help='Hyper-param for action strength LieGroupVAERL.')
 
 args = parser.parse_args()
 

@@ -10,7 +10,7 @@ from sklearn import linear_model
 
 
 class BetaVAEMetric:
-    def __init__(self, ds, num_points=10000, bs=5, paired=False):
+    def __init__(self, ds, num_points=10000, bs=5, paired=False, fixed_shape=True):
         """ BetaVAE Metric
 
         Args:
@@ -18,20 +18,27 @@ class BetaVAEMetric:
             num_points (int): Number of points to evaluate on
             bs (int): batch size
             paired (bool): If True expect the dataset to output symmetry paired images
+            fixed_shape (bool): If fix shape in dsprites.
         """
         super().__init__()
         self.ds = ds
         self.num_points = num_points
         self.bs = bs
         self.paired = paired
+        self.fixed_shape = fixed_shape
 
     def _get_sample_difference(self, rep_fn, bs):
         with torch.no_grad():
 
             if 'flatland' in str(type(self.ds)):
                 K = np.random.randint(0, len(self.ds.latents_sizes))
+            elif 'dsprites' in str(type(self.ds)):
+                if self.fixed_shape:
+                    K = np.random.randint(2, len(self.ds.latents_sizes))
+                else:
+                    K = np.random.randint(0, len(self.ds.latents_sizes))
             else:
-                K = np.random.randint(2, len(self.ds.latents_sizes))
+                K = np.random.randint(0, len(self.ds.latents_sizes))
 
             diffs = []
 

@@ -1,4 +1,5 @@
 from .beta import BetaVAEMetric
+from .factor import FactorVAEMetric
 from .mig import MigMetric
 from .dci import DciMetric
 from .modularity_explicitness import Modularity
@@ -10,6 +11,7 @@ from .measure_independence import TrueIndep
 
 pretty_metric_names = {
     'dmetric/hig_acc': 'Hig Acc',
+    'dmetric/factor_acc': 'Factor Acc',
     'dmetric/val_hig_acc': 'Val Beta',
     'dmetric/discrete_mig': 'MIG',
     'dmetric/informativeness_train': 'Train Inform',

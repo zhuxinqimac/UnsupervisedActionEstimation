@@ -4,7 +4,7 @@ import warnings
 
 
 class MetricAggregator:
-    def __init__(self, ds, val_ds, num_points, model, pair_ds=True, nactions=4, ntrue_actions=4, final=False, nindep_epochs=30, verbose=True):
+    def __init__(self, ds, val_ds, num_points, model, pair_ds=True, nactions=4, ntrue_actions=4, final=False, nindep_epochs=30, fixed_shape=True, verbose=True):
         """ Helper class to compute disentanglement metrics
 
         Args:
@@ -17,6 +17,7 @@ class MetricAggregator:
             ntrue_actions (int): The true number of actions
             final (bool): If True also evaluate the true independence
             nindep_epochs (int): Number of epochs to train independence representations for
+            fixed_shape (bool): If fix shape in dsprites.
             verbose (bool): If True print verbosely
         """
         self.ds = ds
@@ -28,11 +29,13 @@ class MetricAggregator:
         self.final = final
         self.ntrue_actions = ntrue_actions
         self.nindep_epochs = nindep_epochs
+        self.fixed_shape = fixed_shape
         self.verbose = verbose
         self.metrics = self._init_metrics()
 
     def _init_metrics(self):
-        hig = BetaVAEMetric(self.val_ds, num_points=1000, paired=self.paired)
+        fac = FactorVAEMetric(self.val_ds, num_train=2000, num_eval=1000, bs=64, paired=self.paired, fixed_shape=self.fixed_shape, n_var_est=2000)
+        hig = BetaVAEMetric(self.val_ds, num_points=1000, paired=self.paired, fixed_shape=self.fixed_shape)
         mig = MigMetric(self.val_ds, num_points=1000, paired=self.paired)
         dci = DciMetric(self.val_ds, num_points=1000, paired=self.paired)
         mod = Modularity(self.val_ds, num_points=1000, paired=self.paired)
@@ -41,7 +44,7 @@ class MetricAggregator:
         fl = FLMetric(self.val_ds, num_points=1000, paired=self.paired)
         ds = Downstream(self.val_ds, num_points=1000, paired=self.paired)
 
-        metrics = [hig, mig, dci, mod, sap, unsup, fl, ds]
+        metrics = [fac, hig, mig, dci, mod, sap, unsup, fl, ds]
 
         # if self.final:
             # ti = TrueIndep(self.ds, val_ds=self.val_ds, nactions=self.nactions, num_epochs=self.nindep_epochs, ntrue_actions=self.ntrue_actions, verbose=self.verbose)

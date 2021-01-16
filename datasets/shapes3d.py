@@ -1,3 +1,20 @@
+#!/usr/bin/python
+#-*- coding: utf-8 -*-
+
+# >.>.>.>.>.>.>.>.>.>.>.>.>.>.>.>.
+# Licensed under the Apache License, Version 2.0 (the "License")
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# --- File Name: shapes3d.py
+# --- Creation Date: 16-01-2021
+# --- Last Modified: Sat 16 Jan 2021 19:01:40 AEDT
+# --- Author: Xinqi Zhu
+# .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
+"""
+Dataset for 3D Shapes
+"""
+
 import numpy as np
 from torch.utils.data import Dataset
 import os
@@ -9,68 +26,28 @@ import random
 from datasets.transforms import PairTransform
 
 
-class dSprites(Dataset):
+class shapes3d(Dataset):
     """
-    `dSprites <https://github.com/deepmind/dsprites-dataset>`_ Dataset
     Args:
-        root (str): Root directory of dataset containing 'dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz' or to download it to
-        download (bool, optional): If true, downloads the dataset from the internet and puts it in root directory. If dataset is already downloaded, it is not downloaded again.
+        root (str): Root directory of dataset containing 3dshapes.h5
         transform (``Transform``, optional): A function/transform that takes in an PIL image and returns a transformed version. E.g, ``transforms.RandomCrop``
     """
-    def __init__(self, root, download=False, transform=None, fixed_shape=None):
+    def __init__(self, root, transform=None, fixed_shape=None):
         super(dSprites, self).__init__()
         self.file = root
         self.transform = transform
         self.fixed_shape = fixed_shape
 
-        if download:
-            self.download()
-
-        self.data = self.load_data()
-        self.latents_sizes = np.array([3, 6, 40, 32, 32])
+        self.dataset_zip = self.load_data()
+        self.data = dataset_zip['images'][:]  # array shape [480000,64,64,3], uint8 in range(256)
+        # self.latents_sizes = np.array([3, 6, 40, 32, 32])
+        self.latents_sizes = np.array([10, 10, 10, 8, 4, 15])
         self.latents_bases = np.concatenate((self.latents_sizes[::-1].cumprod()[::-1][1:], np.array([1, ])))
-        self.latents_values = np.load(os.path.join(self.file, "latents_values.npy"))
-        self.latents_classes = np.load(os.path.join(self.file, "latents_classes.npy"))
+        # self.latents_classes = np.load(os.path.join(self.file, "latents_classes.npy"))
+        self.latents_classes = self.dataset_zip['labels']  # array shape [480000,6], float64
 
-        if fixed_shape is not None:
-            self._reduce_data(fixed_shape)
-
-    def download(self):
-        if not os.path.exists(os.path.join(self.file, "imgs.npy")):
-            data_url = 'https://github.com/deepmind/dsprites-dataset/blob/master/dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz?raw=true'
-            import sys
-            if sys.version_info[0] < 3:
-                import urllib2 as request
-            else:
-                import urllib.request as request
-            file = os.path.join(self.file, "dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz")
-
-            os.makedirs(self.file, exist_ok=True)
-            with request.urlopen(data_url) as response, open(file, 'wb+') as out_file:
-                shutil.copyfileobj(response, out_file)
-
-            zip_ref = zipfile.ZipFile(file, 'r')
-            zip_ref.extractall(self.file)
-            zip_ref.close()
-
-    def _reduce_data(self, shape):
-        """
-        Reduces the data stored in memory if only a fixed shape is required.
-        """
-        self.latents_sizes = np.array([1, 6, 40, 32, 32])
-        self.latents_bases = np.concatenate((self.latents_sizes[::-1].cumprod()[::-1][1:], np.array([1, ])))
-        self.latents_bases[0] = 0
-
-        data = []
-        values, classes = [], []
-        for i, img in enumerate(self.data):
-            if self.latents_classes[i, 1] == shape:
-                data.append(img)
-                values.append(self.latents_values[i])
-                classes.append(self.latents_classes[i])
-        self.data = np.array(data)
-        self.latents_classes = np.array(classes)
-        self.latents_values = np.array(values)
+        # if fixed_shape is not None:
+            # self._reduce_data(fixed_shape)
 
     def generative_factors(self, index):
         return self.latents_classes[index]
@@ -100,13 +77,14 @@ class dSprites(Dataset):
         return np.array(f)
 
     def load_data(self):
-        root = os.path.join(self.file, "imgs.npy")
-        data = np.load(root)
-        return data
+        root = os.path.join(self.file, "3dshapes.h5")
+        dataset_zip = h5py.File(SHAPES3DPATH+'3dshapes.h5', 'r')
+        # data = np.load(root)
+        return dataset_zip
 
     def __getitem__(self, index):
         data = self.data[index]
-        data = Image.fromarray(data * 255, mode='L')
+        data = Image.fromarray(data)
         labels = self.latents_classes[index]
 
         if self.transform is not None:
@@ -118,12 +96,12 @@ class dSprites(Dataset):
         return self.data.shape[0]
 
 
-class PairSprites(dSprites):
+class PairShapes3D(shapes3d):
     def __init__(self, root, download=False, transform=None, offset=2, max_varied=1, wrapping=False, noise_name=None, output_targets=True, fixed_shape=None):
         """ dSprites dataset with symmetry sampling included if output_targets is True.
 
         Args:
-             root (str): Root directory of dataset containing 'dsprites_ndarray_co1sh3sc6or40x32y32_64x64.npz' or to download it to
+            root (str): Root directory of dataset containing '3dshapes.h5' or to download it to
             download (bool, optional): If true, downloads the dataset from the internet and puts it in root directory. If dataset is already downloaded, it is not downloaded again.
             transform (``Transform``, optional): A function/transform that takes in an PIL image and returns a transformed version. E.g, ``transforms.RandomCrop``
             offset (int, list[int]): Offset of generative factor indices when sampling symmetries
@@ -134,7 +112,7 @@ class PairSprites(dSprites):
         """
         # super().__init__(root, download, transform, None)
         super().__init__(root, download, transform, fixed_shape)
-        self.factor = [1, 2, 3, 4]
+        self.factor = [0, 1, 2, 3, 5]
         self.offset = offset
         self.max_varied = max_varied
         self.wrapping = wrapping
@@ -142,8 +120,7 @@ class PairSprites(dSprites):
         self.output_targets = output_targets
 
     def get_next_img_by_offset(self, label1, img1, factor):
-        max_offsets = [1, 2, 20, 20, 20]
-        # true angles: (2,3): 2.09. (4,5): 0.63. (6,7),(8,9): 0.79
+        max_offsets = [10, 10, 10, 8, 1, 15]
 
         new_latents = np.array(list(label1))
         offset = torch.zeros(label1.shape).to(img1.device)

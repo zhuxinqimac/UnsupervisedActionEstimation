@@ -6,6 +6,7 @@ from models.dip_vae import dip_vae
 from models.lie_vae import LieCeleb
 from models.lie_vae_action import LieAction
 from models.lie_vae_action_simple import LieActionSimple
+from models.lie_vae_rl import lie_rl_group_vae
 
 models = {
     'beta_shapes': BetaShapes,
@@ -20,4 +21,5 @@ models = {
     'lie_group': LieCeleb,
     'lie_group_action': LieAction,
     'lie_group_action_simple': LieActionSimple,
+    'lie_group_rl': lie_rl_group_vae(False),
 }

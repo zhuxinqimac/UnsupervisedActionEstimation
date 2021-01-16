@@ -6,6 +6,7 @@ class ReinforceParams:
     def __init__(self, probs, z, z2, actions, attn_dist):
         self.probs = probs
         self.x = None
+        self.x_preact = None
         self.z = z
         self.z2 = z2
         self.actions = actions
@@ -24,6 +25,7 @@ class ReinforceParams:
     def clone(self):
         p = ReinforceParams(self.probs, self.z, self.z2, self.actions, self.attn_dist)
         p.x = self.x
+        p.x_preact = self.x_preact
         return p
 
 
@@ -76,9 +78,10 @@ class ReinforceBase:
 
     def sample_next_z(self, attn_dist, z, training=True):
         probs, action = self.sample(attn_dist, training)
-        z2 = self.apply_action(z, action)
+        z2_dict = self.apply_action(z, action)
+        z2 = z2_dict['new_z']
         self.reinforce_params.append(ReinforceParams(probs, z, z2, action, attn_dist))
-        return z2
+        return z2_dict
 
     def entropy_loss(self, attn):
         mean_dist = Categorical(attn.mean(0))
@@ -88,14 +91,14 @@ class ReinforceBase:
         dist_entropy = dist.entropy()
         return (dist_entropy / mean_entropy).mean()
 
-    def combine_rewards(self, x2, real):
+    def combine_rewards(self, x2, real, loss_fn):
 
         for i, params in enumerate(self.reinforce_params):
             if params.reward is None:
                 probs, dist, action = params.probs, params.cat_dist, params.actions
 
                 target_params = {'x2': x2, 'z2': real}
-                rewards = self.reward(params.z, action, dist, target_params)
+                rewards = self.reward(params.z, action, dist, target_params, loss_fn=loss_fn, x1=params.x_preact)
                 pure_reward = rewards
 
                 params.reward = rewards
@@ -117,12 +120,12 @@ class ReinforceBase:
             params.policy_loss = self.reinforce(params.reward - regret.detach(), params.probs)
             params.returns_loss = self.reinforce(params.returns - params.regret.detach(), params.probs)
 
-    def regret(self, old_z, actions, dist, current_reward, target_params):
+    def regret(self, old_z, actions, dist, current_reward, target_params, loss_fn=None, x1=None):
         new_actions = self._sample_regret_actions(actions, dist.probs.shape[-1])
 
         new_rewards = []
         for i in range(new_actions.shape[-1]):
-            new_rewards.append(self.reward(old_z, new_actions[:, i], dist, target_params))
+            new_rewards.append(self.reward(old_z, new_actions[:, i], dist, target_params, loss_fn=loss_fn, x1=x1))
 
         new_rewards = torch.stack(new_rewards, -1)
         optimal_rewards, optimal_rewards_argmax = new_rewards.max(-1)
@@ -133,28 +136,29 @@ class ReinforceBase:
 
         return regret.mean(), per_action_reward, optimal_rewards_argmax, expected_reward, new_rewards
 
-    def combine_regret(self, target_params):
+    def combine_regret(self, target_params, loss_fn=None):
         for i, params in enumerate(self.reinforce_params):
             if self.use_regret and params.regret is None:
                 params.regret, params.per_action_reward, params.optimal_rewards, _, params.batch_per_action_rewards = self.regret(
-                    params.z, params.actions, params.cat_dist, params.reward, target_params)
+                    params.z, params.actions, params.cat_dist, params.reward, target_params, loss_fn=loss_fn, x1=params.x_preact)
             else:
                 params.regret = torch.tensor([0]).to(params.z.device)
 
     def apply_action(self, z, action):
         raise NotImplementedError
 
-    def reward(self, old_z, action, dist, target_params):
+    def reward(self, old_z, action, dist, target_params, loss_fn, x1):
         raise NotImplementedError
 
 
 class VAEReinforceBase(ReinforceBase):
     def __init__(self, base_policy_weight, base_policy_epsilon, normalised_reward, use_regret,
-                 decoder, rep_fn, multi_action_strategy='reward', reinforce_discount=0.99, entropy_weight=0.):
+                 decoder, rep_fn, multi_action_strategy='reward', reinforce_discount=0.99, entropy_weight=0., encoder=None):
         super().__init__(base_policy_weight=base_policy_weight, base_policy_epsilon=base_policy_epsilon,
                          normalised_reward=normalised_reward, reinforce_discount=reinforce_discount,
                          use_regret=use_regret)
         self.decoder = decoder
+        self.encoder = encoder
         self.rep_fn = rep_fn
         self.multi_action_strategy = multi_action_strategy
         self.entropy_weight = entropy_weight
@@ -165,10 +169,11 @@ class VAEReinforceBase(ReinforceBase):
     def _latent_reward(self, zs, z2s, real):
         mse_pre_action = (zs - real).pow(2).sum(-1)
         mse_post_action = (z2s - real).pow(2).sum(-1)
+        # print('mse_pre_action.size:', mse_pre_action.size())
         return (mse_pre_action - mse_post_action).float().detach()
 
-    def reward(self, old_z, action, dist, target_params):
-        new_z = self.apply_action(old_z, action)
+    def reward(self, old_z, action, dist, target_params, loss_fn=None):
+        new_z = self.apply_action(old_z, action)['new_z']
         true_z2 = target_params['z2']
         reward = self._latent_reward(old_z, new_z, true_z2)
         return reward.detach()
@@ -183,16 +188,16 @@ class VAEReinforceBase(ReinforceBase):
             loss.append(-param.cat_dist.entropy().mean() * weight)
         return sum(loss)
 
-    def combiners(self, real, x2):
-        self.combine_rewards(x2, real)
+    def combiners(self, real, x2, loss_fn):
+        self.combine_rewards(x2, real, loss_fn=loss_fn)
         self.combine_returns()
         self.reduce_returns(0.)
         self.combine_entropy_loss()
-        self.combine_regret({'x2': x2, 'z2': real})
+        self.combine_regret({'x2': x2, 'z2': real}, loss_fn=loss_fn)
         self.combine_reinforce_losses()
 
-    def loss(self, real, x2):
-        self.combiners(real, x2)
+    def loss(self, real, x2, loss_fn=None):
+        self.combiners(real, x2, loss_fn=loss_fn)
 
         if self.multi_action_strategy == 'reward':
             reinforce_loss = sum([p.policy_loss for p in self.reinforce_params])
