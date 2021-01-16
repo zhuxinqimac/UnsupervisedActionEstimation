@@ -23,7 +23,7 @@ def teapot_transforms(_):
     return Lambda(lam), Lambda(lam)
 
 
-def sprites_transforms(_):
+def shapes3d_transforms(_):
     return ToTensor(), ToTensor()
 
 
