@@ -8,7 +8,7 @@
 
 # --- File Name: lie_vae.py
 # --- Creation Date: 25-12-2020
-# --- Last Modified: Thu 14 Jan 2021 19:17:49 AEDT
+# --- Last Modified: Sun 17 Jan 2021 00:28:27 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -344,6 +344,14 @@ class LieCeleb(VAE):
     def decode_full(self, z):
         return self.decoder(z)
 
+    def latent_level_loss(self, z2, mu2, mean=False):
+        squares = (z2 - mu2).pow(2)
+        if not mean:
+            squares = squares.sum() / z2.shape[0]
+        else:
+            squares = squares.mean()
+        return squares
+
     def calc_basis_mul_ij(self, lie_alg_basis_ls_param):
         lie_alg_basis_ls = [alg_tmp * 1. for alg_tmp in lie_alg_basis_ls_param]
         lie_alg_basis = torch.cat(lie_alg_basis_ls,
@@ -468,7 +476,8 @@ class LieCeleb(VAE):
             'metric/recon_loss': rec_loss,
             'metric/group_loss': group_loss,
             'metric/beta_kl': beta_kl,
-            'metric/total_kl': total_kl
+            'metric/total_kl': total_kl,
+            'metric/mse_x_gg_eg': self.latent_level_loss(group_feats_E, group_feats_G, mean=True),
         })
         return {'loss': loss, 'out': tensorboard_logs, 'state': state}
 
@@ -481,7 +490,7 @@ class LieCeleb(VAE):
                           args.latents,
                           list(range(args.latents)),
                           subgroup_sizes_ls=self.subgroup_sizes_ls,
-                          limits=[-8, 8],
+                          limits=[-4, 4],
                           steps=20,
                           input_batch=batch,
                           to_tb=True),

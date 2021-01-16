@@ -8,7 +8,7 @@
 
 # --- File Name: shapes3d.py
 # --- Creation Date: 16-01-2021
-# --- Last Modified: Sat 16 Jan 2021 19:01:40 AEDT
+# --- Last Modified: Sat 16 Jan 2021 22:03:21 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -19,6 +19,7 @@ import numpy as np
 from torch.utils.data import Dataset
 import os
 import shutil
+import h5py
 import zipfile
 from PIL import Image
 import torch
@@ -33,13 +34,13 @@ class shapes3d(Dataset):
         transform (``Transform``, optional): A function/transform that takes in an PIL image and returns a transformed version. E.g, ``transforms.RandomCrop``
     """
     def __init__(self, root, transform=None, fixed_shape=None):
-        super(dSprites, self).__init__()
+        super(shapes3d, self).__init__()
         self.file = root
         self.transform = transform
         self.fixed_shape = fixed_shape
 
         self.dataset_zip = self.load_data()
-        self.data = dataset_zip['images'][:]  # array shape [480000,64,64,3], uint8 in range(256)
+        self.data = self.dataset_zip['images'][:]  # array shape [480000,64,64,3], uint8 in range(256)
         # self.latents_sizes = np.array([3, 6, 40, 32, 32])
         self.latents_sizes = np.array([10, 10, 10, 8, 4, 15])
         self.latents_bases = np.concatenate((self.latents_sizes[::-1].cumprod()[::-1][1:], np.array([1, ])))
@@ -78,7 +79,7 @@ class shapes3d(Dataset):
 
     def load_data(self):
         root = os.path.join(self.file, "3dshapes.h5")
-        dataset_zip = h5py.File(SHAPES3DPATH+'3dshapes.h5', 'r')
+        dataset_zip = h5py.File(root, 'r')
         # data = np.load(root)
         return dataset_zip
 
@@ -102,7 +103,6 @@ class PairShapes3D(shapes3d):
 
         Args:
             root (str): Root directory of dataset containing '3dshapes.h5' or to download it to
-            download (bool, optional): If true, downloads the dataset from the internet and puts it in root directory. If dataset is already downloaded, it is not downloaded again.
             transform (``Transform``, optional): A function/transform that takes in an PIL image and returns a transformed version. E.g, ``transforms.RandomCrop``
             offset (int, list[int]): Offset of generative factor indices when sampling symmetries
             max_varied (int): Max number of symmetries acting per observation
@@ -110,8 +110,7 @@ class PairShapes3D(shapes3d):
             noise_name (str): Name of noise to add, default None
             output_targets (bool): If True output image pair corresponding to symmetry action. If False, standard dSprites.
         """
-        # super().__init__(root, download, transform, None)
-        super().__init__(root, download, transform, fixed_shape)
+        super().__init__(root, transform)
         self.factor = [0, 1, 2, 3, 5]
         self.offset = offset
         self.max_varied = max_varied
