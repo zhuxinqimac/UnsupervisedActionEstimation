@@ -8,7 +8,7 @@
 
 # --- File Name: lie_vae.py
 # --- Creation Date: 25-12-2020
-# --- Last Modified: Sun 17 Jan 2021 00:28:27 AEDT
+# --- Last Modified: Mon 18 Jan 2021 16:52:41 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -62,6 +62,9 @@ class LieCelebEncoder(nn.Module):
                 nn.Conv2d(64, 64, 4, 2, 1), nn.ReLU(True), Flatten(),
                 nn.Linear(1024, 256), nn.ReLU(),
                 nn.Linear(256, self.group_feats_size))
+        for p in self.prior_group.modules():
+            if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear):
+                torch.nn.init.xavier_uniform_(p.weight)
         self.to_means = nn.ModuleList([])
         self.to_logvar = nn.ModuleList([])
         for i, subgroup_size_i in enumerate(self.subgroup_sizes_ls):
@@ -77,6 +80,12 @@ class LieCelebEncoder(nn.Module):
                     nn.ReLU(True),
                     nn.Linear(subgroup_size_i * 4, subspace_sizes_ls[i]),
                 ))
+        for p in self.to_means.modules():
+            if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear):
+                torch.nn.init.xavier_uniform_(p.weight)
+        for p in self.to_logvar.modules():
+            if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear):
+                torch.nn.init.xavier_uniform_(p.weight)
 
     def to_gfeat(self, x):
         group_feats = self.prior_group(x)
@@ -175,6 +184,11 @@ class LieCelebDecoder(nn.Module):
                 nn.ConvTranspose2d(64, 32, 4, 2, 1), nn.ReLU(True),
                 nn.ConvTranspose2d(32, 32, 4, 2, 1), nn.ReLU(True),
                 nn.ConvTranspose2d(32, self.nc, 4, 2, 1))
+        for p in self.post_exp.modules():
+            if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                    isinstance(p, nn.ConvTranspose2d):
+                torch.nn.init.xavier_uniform_(p.weight)
+
 
     def split_latents(self, x):
         # x: [b, dim]
@@ -184,9 +198,9 @@ class LieCelebDecoder(nn.Module):
         split_idx = torch.randint(0, dim + 1, size=[b, self.hy_ncut])
         split_idx, _ = torch.sort(split_idx, dim=-1)
 
-        idx_range = torch.tile(torch.range(dim)[np.newaxis, :], (b, 1))
+        idx_range = torch.arange(dim).repeat(b, 1)
         masks = []
-        mask_last = torch.zeros(b, dim, dtype=x.dtype)
+        mask_last = torch.zeros(b, dim, dtype=x.dtype).to(x.device)
         for i in range(self.hy_ncut):
             mask_tmp = (idx_range < split_idx[:, i:i + 1]).to(
                 x)  # change dtype
@@ -195,6 +209,8 @@ class LieCelebDecoder(nn.Module):
         mask_tmp = (idx_range < split_idx[:, -1:]).to(x)
         masks.append(1. - mask_tmp)
         x_split_ls = [x * mask for mask in masks]
+        # print('x_split_ls:', x_split_ls)
+        # input()
         return x_split_ls
 
     def val_exp(self, x, lie_alg_basis_ls, lie_var_ls, lie_alg_init_type):
