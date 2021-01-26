@@ -8,7 +8,7 @@
 
 # --- File Name: lie_vae.py
 # --- Creation Date: 25-12-2020
-# --- Last Modified: Mon 18 Jan 2021 16:52:41 AEDT
+# --- Last Modified: Mon 25 Jan 2021 02:51:21 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -125,7 +125,8 @@ class LieCelebDecoder(nn.Module):
                  lie_alg_init_scale=0.001,
                  normalize_alg=False,
                  use_alg_var=False,
-                 nc=3):
+                 nc=3,
+                 no_exp=False):
         """ Decoder network for lie_group_vae.
         Args:
             subgroup_sizes_ls (list of int): Sizes of subgroup_feats, must be square numbers.
@@ -136,6 +137,7 @@ class LieCelebDecoder(nn.Module):
             normalize_alg: If normalize the lie generators.
             use_alg_var (bool): If use a scalar var for each latent dimension.
             nc (int): Number of out channels.
+            no_exp (bool): If deactivate exp_mapping (as a baseline model).
         """
         super().__init__()
         self.subgroup_sizes_ls = subgroup_sizes_ls
@@ -148,7 +150,19 @@ class LieCelebDecoder(nn.Module):
         self.normalize_alg = normalize_alg
         self.use_alg_var = use_alg_var
         self.nc = nc
+        self.no_exp = no_exp
 
+        if self.no_exp:
+            in_size = sum(self.subspace_sizes_ls)
+            out_size = sum(self.subgroup_sizes_ls)
+            self.fake_exp = nn.Sequential(
+                    nn.Linear(in_size, in_size * 4),
+                    nn.ReLU(True),
+                    nn.Linear(in_size * 4, out_size))
+            for p in self.fake_exp.modules():
+                if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                        isinstance(p, nn.ConvTranspose2d):
+                    torch.nn.init.xavier_uniform_(p.weight)
         # Init lie_alg for each latent dim.
         self.lie_var_ls = nn.ParameterList([])
         self.lie_alg_basis_ls = nn.ParameterList([])
@@ -283,37 +297,40 @@ class LieCelebDecoder(nn.Module):
 
     def forward(self, latents_in):
         latent_dim = list(latents_in.size())[-1]
-        assert latent_dim == sum(self.subspace_sizes_ls)
 
-        # Calc exp.
-        lie_group_tensor_ls = []
-        b_idx = 0
-        for i, subgroup_size_i in enumerate(self.subgroup_sizes_ls):
-            mat_dim = int(math.sqrt(subgroup_size_i))
-            e_idx = b_idx + self.subspace_sizes_ls[i]
-            if self.subspace_sizes_ls[i] > 1:
-                if not self.training:
-                    lie_subgroup = self.val_exp(
-                        latents_in[:, b_idx:e_idx],
-                        self.lie_alg_basis_ls[b_idx:e_idx],
-                        self.lie_var_ls[b_idx:e_idx],
-                        self.lie_alg_init_type_ls[i])
+        if self.no_exp:
+            lie_group_tensor = self.fake_exp(latents_in)
+        else:
+            assert latent_dim == sum(self.subspace_sizes_ls)
+            # Calc exp.
+            lie_group_tensor_ls = []
+            b_idx = 0
+            for i, subgroup_size_i in enumerate(self.subgroup_sizes_ls):
+                mat_dim = int(math.sqrt(subgroup_size_i))
+                e_idx = b_idx + self.subspace_sizes_ls[i]
+                if self.subspace_sizes_ls[i] > 1:
+                    if not self.training:
+                        lie_subgroup = self.val_exp(
+                            latents_in[:, b_idx:e_idx],
+                            self.lie_alg_basis_ls[b_idx:e_idx],
+                            self.lie_var_ls[b_idx:e_idx],
+                            self.lie_alg_init_type_ls[i])
+                    else:
+                        lie_subgroup = self.train_exp(
+                            latents_in[:, b_idx:e_idx],
+                            self.lie_alg_basis_ls[b_idx:e_idx], mat_dim,
+                            self.lie_var_ls[b_idx:e_idx],
+                            self.lie_alg_init_type_ls[i])
                 else:
-                    lie_subgroup = self.train_exp(
-                        latents_in[:, b_idx:e_idx],
-                        self.lie_alg_basis_ls[b_idx:e_idx], mat_dim,
-                        self.lie_var_ls[b_idx:e_idx],
-                        self.lie_alg_init_type_ls[i])
-            else:
-                lie_subgroup = self.val_exp(latents_in[:, b_idx:e_idx],
-                                            self.lie_alg_basis_ls[b_idx:e_idx],
-                                            self.lie_var_ls[b_idx:e_idx],
-                                            self.lie_alg_init_type_ls[i])
-            lie_subgroup_tensor = lie_subgroup.view(-1, mat_dim * mat_dim)
-            lie_group_tensor_ls.append(lie_subgroup_tensor)
-            b_idx = e_idx
-        lie_group_tensor = torch.cat(lie_group_tensor_ls,
-                                     dim=1)  # [b, group_feat_size]
+                    lie_subgroup = self.val_exp(latents_in[:, b_idx:e_idx],
+                                                self.lie_alg_basis_ls[b_idx:e_idx],
+                                                self.lie_var_ls[b_idx:e_idx],
+                                                self.lie_alg_init_type_ls[i])
+                lie_subgroup_tensor = lie_subgroup.view(-1, mat_dim * mat_dim)
+                lie_group_tensor_ls.append(lie_subgroup_tensor)
+                b_idx = e_idx
+            lie_group_tensor = torch.cat(lie_group_tensor_ls,
+                                         dim=1)  # [b, group_feat_size]
 
         output = self.post_exp(lie_group_tensor)
         return output, lie_group_tensor
@@ -328,7 +345,8 @@ class LieCeleb(VAE):
             LieCelebDecoder(args.subgroup_sizes_ls, args.subspace_sizes_ls,
                             args.lie_alg_init_type_ls, args.dataset,
                             args.hy_ncut, args.lie_alg_init_scale,
-                            args.normalize_alg, args.use_alg_var, args.nc),
+                            args.normalize_alg, args.use_alg_var, args.nc,
+                            args.no_exp),
             args.beta,
             args.capacity,
             args.capacity_leadin)

@@ -73,6 +73,7 @@ parser.add_argument('--cycle_limit', default=4., type=float, help='The limit of 
 parser.add_argument('--cycle_prob', default=0.1, type=float, help='The limit of cycle_latent in LieGroupVAE.')
 parser.add_argument('--forward_eg_prob', default=0.6667, type=float, help='The prob to forward eg in LieGroupVAE.')
 parser.add_argument('--recons_loss_type', default='l2', choices=['l2', 'bce'], type=str, help='The reconstruction type for x.')
+parser.add_argument('--no_exp', default=False, type=_str_to_bool, help='If deactivate exp_mapping in LieGroupVAE.')
 
 # Lie Group Action Model
 parser.add_argument('--num_actions', default=4, type=int, help='Hyper-param for number of actions in LieAction.')
