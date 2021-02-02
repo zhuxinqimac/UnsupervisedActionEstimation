@@ -8,7 +8,7 @@
 
 # --- File Name: lie_vae_rl.py
 # --- Creation Date: 06-01-2021
-# --- Last Modified: Sat 16 Jan 2021 00:36:43 AEDT
+# --- Last Modified: Tue 02 Feb 2021 15:15:12 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -281,6 +281,7 @@ class ReinforceLieGroupVAE(GroupVAE):
         out_state.update(loss_out)
         self.global_step += 1
 
+        l1_loss_fn = lambda x_hat, x: torch.abs(x_hat.sigmoid() - x).sum() / x.shape[0]
         tensorboard_logs = {
             'metric/loss':
             vae_loss + pred_loss + st_loss,
@@ -307,7 +308,8 @@ class ReinforceLieGroupVAE(GroupVAE):
             'metric/gfeat_diff':
             self.latent_level_loss(y_eg_hat, x_eg, mean=True),
             'metric/mse_xeg_yeg':
-            self.latent_level_loss(x_eg, y_eg, mean=True)
+            self.latent_level_loss(x_eg, y_eg, mean=True),
+            'metric/mse_x2_l1': l1_loss_fn(x2_hat, y),
         }
         tensorboard_logs.update(loss_logs)
         tensorboard_logs.update(out['out'])

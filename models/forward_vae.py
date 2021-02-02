@@ -256,6 +256,7 @@ class ForwardVAE(nn.Module):
                 warnings.warn('Failed to generate reconstructed data')
 
         state.update(loss_out)
+        l1_loss_fn = lambda x_hat, x: torch.abs(x_hat.sigmoid() - x).sum() / x.shape[0]
         tensorboard_logs = {'metric/recon_loss': loss_recon,
                             'metric/total_kl': -0.5 * torch.mean((1 + logvar - mu.pow(2) - logvar.exp()).sum(-1)),
                             'forward/predict': loss_predict_next_z,
@@ -264,7 +265,8 @@ class ForwardVAE(nn.Module):
                             'metric/mse_x2': self.recon_level_loss(state, mean=True),
                             'metric/mse_z2': self.latent_level_loss(state, mean=True),
                             'metric/latent_diff': (z_plus_1 - z).pow(2).mean(),
-                            'metric/mse_z1_mu2': (z - state['mut']).pow(2).mean()
+                            'metric/mse_z1_mu2': (z - state['mut']).pow(2).mean(),
+                            'metric/mse_x2_l1': l1_loss_fn(state['x2_hat'], state['x2']),
         }
         tensorboard_logs.update(loss_logs)
         self.global_step += 1

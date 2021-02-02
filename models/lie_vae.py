@@ -8,7 +8,7 @@
 
 # --- File Name: lie_vae.py
 # --- Creation Date: 25-12-2020
-# --- Last Modified: Mon 25 Jan 2021 02:51:21 AEDT
+# --- Last Modified: Mon 01 Feb 2021 21:13:17 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -68,6 +68,10 @@ class LieCelebEncoder(nn.Module):
         self.to_means = nn.ModuleList([])
         self.to_logvar = nn.ModuleList([])
         for i, subgroup_size_i in enumerate(self.subgroup_sizes_ls):
+            # self.to_means.append(
+                # nn.Linear(subgroup_size_i, subspace_sizes_ls[i]))
+            # self.to_logvar.append(
+                # nn.Linear(subgroup_size_i, subspace_sizes_ls[i]))
             self.to_means.append(
                 nn.Sequential(
                     nn.Linear(subgroup_size_i, subgroup_size_i * 4),

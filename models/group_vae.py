@@ -101,12 +101,14 @@ class GroupVAE(VAE):
 
         self.global_step += 1
 
+        l1_loss_fn = lambda x_hat, x: torch.abs(x_hat.sigmoid() - x).sum() / x.shape[0]
         tensorboard_logs = {
             'metric/loss': vae_loss + pred_loss,
             'metric/pred_loss': pred_loss,
             'metric/total_kl_meaned': self.vae.compute_kl(mu, lv, mean=True),
             'metric/mse_x1': self.recon_level_loss(x_hat, x, loss_fn, mean=True),
             'metric/mse_x2': self.recon_level_loss(x2_hat, y, loss_fn, mean=True),
+            'metric/mse_x2_l1': l1_loss_fn(x2_hat, y),
             'metric/mse_z2': self.latent_level_loss(z2, mu2, mean=True),
             'metric/latent_diff': (z2 - z).pow(2).mean(),
             'metric/mse_z1_mu2': (z - mu2).pow(2).mean()}
