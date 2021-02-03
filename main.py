@@ -6,7 +6,7 @@ from utils import _str_to_list_of_int, _str_to_list_of_str, _str_to_bool
 parser = argparse.ArgumentParser('Disentanglement')
 # Basic Training Args
 parser.add_argument('--epochs', default=50, type=int)
-parser.add_argument('--model', default='forward', type=str, choices=['beta_shapes', 'beta_celeb', 'forward', 'rgrvae', 'dip_vae_i', 'dip_vae_ii', 'beta_forward', 'dforward', 'lie_group', 'lie_group_action', 'lie_group_action_simple', 'lie_group_rl'])
+parser.add_argument('--model', default='forward', type=str, choices=['beta_shapes', 'beta_celeb', 'forward', 'rgrvae', 'dip_vae_i', 'dip_vae_ii', 'beta_forward', 'dforward', 'lie_group', 'lie_group_action', 'lie_group_action_simple', 'lie_group_rl', 'factor_vae'])
 parser.add_argument('--dataset', default='flatland', type=str, choices=['flatland', 'dsprites', 'teapot', 'teapot_nocolor', 'shapes3d'])
 parser.add_argument('--fixed_shape', default=None, type=int, help='Fixed shape in dsprites. None for not fixed.')
 parser.add_argument('--data-path', default=None, type=str, help='Path to dataset root')

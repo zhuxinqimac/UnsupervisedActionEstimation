@@ -8,7 +8,7 @@
 
 # --- File Name: collect_results.py
 # --- Creation Date: 02-02-2021
-# --- Last Modified: Tue 02 Feb 2021 14:56:18 AEDT
+# --- Last Modified: Tue 02 Feb 2021 19:15:09 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -130,7 +130,7 @@ def main():
     args = parser.parse_args()
 
     args.config_variables = parse_config_v(args.config_variables)
-    res_dirs = glob.glob(os.path.join(args.in_dir, 'lie_group_*/'))
+    res_dirs = glob.glob(os.path.join(args.in_dir, '*/'))
     # print('res_dirs:', res_dirs)
     res_dirs.sort()
     results = {'_config': []}
