@@ -8,7 +8,7 @@
 
 # --- File Name: lie_vae_rl.py
 # --- Creation Date: 06-01-2021
-# --- Last Modified: Tue 02 Feb 2021 15:15:12 AEDT
+# --- Last Modified: Thu 04 Feb 2021 21:20:18 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -313,6 +313,7 @@ class ReinforceLieGroupVAE(GroupVAE):
         }
         tensorboard_logs.update(loss_logs)
         tensorboard_logs.update(out['out'])
+
         return {
             'loss': vae_loss + pred_loss + self.hy_st * st_loss,
             # 'loss': vae_loss + pred_loss,

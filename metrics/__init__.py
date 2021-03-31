@@ -8,6 +8,7 @@ from .unsupervised import UnsupervisedMetrics
 from .factor_leakage import FLMetric
 from .downstream import Downstream
 from .measure_independence import TrueIndep
+from .variation_properties import VariationProperty
 
 pretty_metric_names = {
     'dmetric/hig_acc': 'Hig Acc',

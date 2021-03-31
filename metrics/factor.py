@@ -8,7 +8,7 @@
 
 # --- File Name: factor.py
 # --- Creation Date: 16-01-2021
-# --- Last Modified: Sat 16 Jan 2021 18:08:43 AEDT
+# --- Last Modified: Thu 25 Mar 2021 18:54:15 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """Implementation of FactorVAE Metric.
@@ -120,7 +120,8 @@ class FactorVAEMetric:
         argmin = np.argmin(local_variances[active_dims] / global_var[active_dims])
         return factor_index_metric, argmin
 
-    def _prune_dims(self, variances, threshold=0.05):
+    # def _prune_dims(self, variances, threshold=0.05):
+    def _prune_dims(self, variances, threshold=0.1):
         """Mask for dimensions collapsed to the prior."""
         scale_z = np.sqrt(variances)
         return scale_z >= threshold

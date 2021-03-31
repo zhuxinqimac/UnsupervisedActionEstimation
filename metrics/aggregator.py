@@ -43,8 +43,10 @@ class MetricAggregator:
         unsup = UnsupervisedMetrics(self.val_ds, num_points=1000, paired=self.paired)
         fl = FLMetric(self.val_ds, num_points=1000, paired=self.paired)
         ds = Downstream(self.val_ds, num_points=1000, paired=self.paired)
+        vp = VariationProperty()
 
         metrics = [fac, hig, mig, dci, mod, sap, unsup, fl, ds]
+        # metrics = [vp]
 
         # if self.final:
             # ti = TrueIndep(self.ds, val_ds=self.val_ds, nactions=self.nactions, num_epochs=self.nindep_epochs, ntrue_actions=self.ntrue_actions, verbose=self.verbose)

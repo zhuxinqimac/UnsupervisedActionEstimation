@@ -8,7 +8,7 @@
 
 # --- File Name: lie_vae.py
 # --- Creation Date: 25-12-2020
-# --- Last Modified: Mon 01 Feb 2021 21:13:17 AEDT
+# --- Last Modified: Tue 23 Mar 2021 22:33:36 AEDT
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -48,12 +48,6 @@ class LieCelebEncoder(nn.Module):
                 Flatten(),
                 nn.Linear(64 * 4 * 4, 256), nn.ReLU(True),
                 nn.Linear(256, self.group_feats_size))
-            # self.prior_group = nn.Sequential(
-                # nn.Conv2d(self.nc, 16, 8, stride=4), nn.ReLU(True),
-                # nn.Conv2d(16, 32, 4, stride=2), nn.ReLU(True),
-                # nn.Conv2d(32, 32, 3, stride=1), nn.ReLU(True), Flatten(),
-                # nn.Linear(32 * 7 * 7, 256), nn.ReLU(True),
-                # nn.Linear(256, self.group_feats_size))
         else:
             self.prior_group = nn.Sequential(
                 nn.Conv2d(self.nc, 32, 4, 2, 1), nn.ReLU(True),
@@ -62,16 +56,18 @@ class LieCelebEncoder(nn.Module):
                 nn.Conv2d(64, 64, 4, 2, 1), nn.ReLU(True), Flatten(),
                 nn.Linear(1024, 256), nn.ReLU(),
                 nn.Linear(256, self.group_feats_size))
+            # self.prior_group = nn.Sequential(
+                # nn.Conv2d(self.nc, 32, 4, 2, 1), nn.ReLU(True),
+                # nn.Conv2d(32, 32, 4, 2, 1), nn.ReLU(True),
+                # nn.Conv2d(32, 64, 4, 2, 1), nn.ReLU(True),
+                # nn.Conv2d(64, 64, 4, 2, 1), nn.ReLU(True), Flatten(),
+                # nn.Linear(1024, self.group_feats_size))
         for p in self.prior_group.modules():
             if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear):
                 torch.nn.init.xavier_uniform_(p.weight)
         self.to_means = nn.ModuleList([])
         self.to_logvar = nn.ModuleList([])
         for i, subgroup_size_i in enumerate(self.subgroup_sizes_ls):
-            # self.to_means.append(
-                # nn.Linear(subgroup_size_i, subspace_sizes_ls[i]))
-            # self.to_logvar.append(
-                # nn.Linear(subgroup_size_i, subspace_sizes_ls[i]))
             self.to_means.append(
                 nn.Sequential(
                     nn.Linear(subgroup_size_i, subgroup_size_i * 4),
@@ -84,6 +80,18 @@ class LieCelebEncoder(nn.Module):
                     nn.ReLU(True),
                     nn.Linear(subgroup_size_i * 4, subspace_sizes_ls[i]),
                 ))
+            # self.to_means.append(
+                # nn.Sequential(
+                    # nn.Linear(subgroup_size_i, subgroup_size_i),
+                    # nn.ReLU(True),
+                    # nn.Linear(subgroup_size_i, subspace_sizes_ls[i]),
+                # ))
+            # self.to_logvar.append(
+                # nn.Sequential(
+                    # nn.Linear(subgroup_size_i, subgroup_size_i),
+                    # nn.ReLU(True),
+                    # nn.Linear(subgroup_size_i, subspace_sizes_ls[i]),
+                # ))
         for p in self.to_means.modules():
             if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear):
                 torch.nn.init.xavier_uniform_(p.weight)
@@ -202,6 +210,13 @@ class LieCelebDecoder(nn.Module):
                 nn.ConvTranspose2d(64, 32, 4, 2, 1), nn.ReLU(True),
                 nn.ConvTranspose2d(32, 32, 4, 2, 1), nn.ReLU(True),
                 nn.ConvTranspose2d(32, self.nc, 4, 2, 1))
+            # self.post_exp = nn.Sequential(
+                # nn.Linear(self.group_feats_size, 1024), nn.ReLU(True),
+                # View(64, 4, 4),
+                # nn.ConvTranspose2d(64, 64, 4, 2, 1), nn.ReLU(True),
+                # nn.ConvTranspose2d(64, 32, 4, 2, 1), nn.ReLU(True),
+                # nn.ConvTranspose2d(32, 32, 4, 2, 1), nn.ReLU(True),
+                # nn.ConvTranspose2d(32, self.nc, 4, 2, 1))
         for p in self.post_exp.modules():
             if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
                     isinstance(p, nn.ConvTranspose2d):
@@ -517,7 +532,17 @@ class LieCeleb(VAE):
             'metric/total_kl': total_kl,
             'metric/mse_x_gg_eg': self.latent_level_loss(group_feats_E, group_feats_G, mean=True),
         })
+
+        perdim_MI = self.compute_perdim_MI(mu, lv)
+        for i, v in enumerate(perdim_MI):
+            tensorboard_logs.update({'metric/latent_%d' % i : v})
+
         return {'loss': loss, 'out': tensorboard_logs, 'state': state}
+
+    def compute_perdim_MI(self, mu, logvar):
+        klds = -0.5*(1 + logvar - mu.pow(2) - logvar.exp())
+        perdim_MI = klds.mean(0)
+        return perdim_MI
 
     def imaging_cbs(self, args, logger, model, batch=None):
         cbs = super().imaging_cbs(args, logger, model, batch=batch)
