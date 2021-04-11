@@ -7,6 +7,7 @@ from models.lie_vae import LieCeleb
 from models.lie_vae_action import LieAction
 from models.lie_vae_action_simple import LieActionSimple
 from models.lie_vae_rl import lie_rl_group_vae
+from models.uneven_vae import UnevenVAE
 
 models = {
     'beta_shapes': BetaShapes,
@@ -22,4 +23,5 @@ models = {
     'lie_group_action': LieAction,
     'lie_group_action_simple': LieActionSimple,
     'lie_group_rl': lie_rl_group_vae(False),
+    'uneven_vae': UnevenVAE,
 }
