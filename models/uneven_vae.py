@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Sun 11 Apr 2021 16:18:17 AEST
+# --- Last Modified: Sun 11 Apr 2021 17:54:44 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -38,6 +38,7 @@ class UnevenVAE(VAE):
         self.uneven_reg_maxval = args.uneven_reg_maxval
         self.exp_uneven_reg = args.exp_uneven_reg
         self.uneven_reg_lambda = args.uneven_reg_lambda
+        self.uneven_reg_encoder_lambda = args.uneven_reg_encoder_lambda
 
     def main_step(self, batch, batch_nb, loss_fn):
 
@@ -47,10 +48,18 @@ class UnevenVAE(VAE):
         z = self.reparametrise(mu, lv)
         x_hat = self.decode(z)
 
-        weight_to_uneven = self.decoder[0].weight  # (out_dim, in_dim)
-        # bias_to_uneven = self.decoder[0].bias
         recon_loss = loss_fn(x_hat, x)
-        uneven_loss = self.uneven_loss(weight_to_uneven)
+
+        weight_to_uneven = self.decoder[0].weight  # (out_dim, n_lat)
+        uneven_loss = self.uneven_loss(weight_to_uneven, self.uneven_reg_lambda)
+        if self.uneven_reg_encoder_lambda > 0:
+            weight_enc_to_uneven = self.encoder[-1].weight  # (n_lat * 2, in_dim)
+            weight_enc_to_uneven = torch.transpose(
+                weight_enc_to_uneven[:weight_enc_to_uneven.size(0)//2, ...], 0, 1)
+            uneven_enc_loss = self.uneven_loss(weight_enc_to_uneven, 
+                                               self.uneven_reg_encoder_lambda)
+            uneven_loss += uneven_enc_loss
+
         total_kl = self.compute_kl(mu, lv, mean=False)
         beta_kl = self.control_capacity(total_kl, self.global_step, self.anneal)
         state = self.make_state(batch_nb, x_hat, x, y, mu, lv, z)
@@ -61,7 +70,7 @@ class UnevenVAE(VAE):
                             'metric/beta_kl': beta_kl, 'metric/uneven_loss': uneven_loss}
         return {'loss': loss, 'out': tensorboard_logs, 'state': state}
 
-    def uneven_loss(self, weight):
+    def uneven_loss(self, weight, loss_lambda):
         '''
         weight: (out_dim, in_dim)
         '''
@@ -70,4 +79,4 @@ class UnevenVAE(VAE):
         if self.exp_uneven_reg:
             reg = torch.exp(reg)
         w_in = torch.sum(weight * weight, dim=0)  # (in_dim)
-        return torch.sum(w_in * reg, dim=0) * self.uneven_reg_lambda
+        return torch.sum(w_in * reg, dim=0) * loss_lambda

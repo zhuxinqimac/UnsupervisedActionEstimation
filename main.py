@@ -88,7 +88,8 @@ parser.add_argument('--hy_st', default=0., type=float, help='Hyper-param for act
 # Uneven Model
 parser.add_argument('--uneven_reg_maxval', default=0, type=float, help='The maxval of the lin_reg in uneven vae loss.')
 parser.add_argument('--exp_uneven_reg', default=False, type=_str_to_bool, help='If use exp reg rather than lin reg in uneven vae loss.')
-parser.add_argument('--uneven_reg_lambda', default=0, type=float, help='The overall lambda for reg in uneven vae loss.')
+parser.add_argument('--uneven_reg_lambda', default=0, type=float, help='The (decoder) lambda for reg in uneven vae loss.')
+parser.add_argument('--uneven_reg_encoder_lambda', default=0, type=float, help='The encoder lambda for reg in uneven vae loss.')
 
 
 args = parser.parse_args()
