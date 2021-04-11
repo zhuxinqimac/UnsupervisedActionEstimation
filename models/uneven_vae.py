@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Sun 11 Apr 2021 17:54:44 AEST
+# --- Last Modified: Sun 11 Apr 2021 18:28:55 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -52,6 +52,7 @@ class UnevenVAE(VAE):
 
         weight_to_uneven = self.decoder[0].weight  # (out_dim, n_lat)
         uneven_loss = self.uneven_loss(weight_to_uneven, self.uneven_reg_lambda)
+        uneven_enc_loss = 0.
         if self.uneven_reg_encoder_lambda > 0:
             weight_enc_to_uneven = self.encoder[-1].weight  # (n_lat * 2, in_dim)
             weight_enc_to_uneven = torch.transpose(
@@ -67,7 +68,8 @@ class UnevenVAE(VAE):
 
         loss = recon_loss + beta_kl + uneven_loss
         tensorboard_logs = {'metric/loss': loss, 'metric/recon_loss': recon_loss, 'metric/total_kl': total_kl,
-                            'metric/beta_kl': beta_kl, 'metric/uneven_loss': uneven_loss}
+                            'metric/beta_kl': beta_kl, 'metric/uneven_loss': uneven_loss,
+                            'metric/uneven_enc_loss': uneven_enc_loss, 'metric/uneven_dec_loss': uneven_loss - uneven_enc_loss}
         return {'loss': loss, 'out': tensorboard_logs, 'state': state}
 
     def uneven_loss(self, weight, loss_lambda):
