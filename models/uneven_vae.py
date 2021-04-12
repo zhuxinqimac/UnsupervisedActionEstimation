@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 18:03:46 AEST
+# --- Last Modified: Mon 12 Apr 2021 18:05:56 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -44,7 +44,7 @@ def beta_decoder(args):
         n_segs = 256 // args.latents
         n_resi = 256 % args.latents
         mask_segs = torch.triu(torch.ones(args.latents, args.latents)).repeat([n_segs, 1])
-        mask = torch.flip(torch.cat([mask_segs, torch.triu(torch.ones(n_resi, args.latents))], dim=0), [1])
+        mask = torch.flip(torch.cat([mask_segs, torch.triu(torch.ones(n_resi, args.latents))], dim=0), [1]).to('cuda')
         first_layer = MaskedLinear(args.latents, 256, mask)
     else:
         first_layer = nn.Linear(args.latents, 256)
