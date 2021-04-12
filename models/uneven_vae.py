@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 23:16:05 AEST
+# --- Last Modified: Mon 12 Apr 2021 23:30:46 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -58,7 +58,7 @@ def beta_decoder(args):
         mask = torch.flip(torch.cat([mask_segs, torch.triu(torch.ones(n_resi, args.latents))], dim=0), [1]).to('cuda')
         first_layer = MaskedLinear(args.latents, 256, mask)
     elif args.uneven_w_max_dropout_rate > 0:
-        mask = torch.ones(256, args.latents)
+        mask = torch.ones(256, args.latents).to('cuda')
         first_layer = MaskedLinear(args.latents, 256, mask, max_rate=args.uneven_w_max_dropout_rate)
     else:
         first_layer = nn.Linear(args.latents, 256)
