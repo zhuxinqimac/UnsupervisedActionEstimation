@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 18:05:56 AEST
+# --- Last Modified: Mon 12 Apr 2021 18:07:17 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -18,6 +18,7 @@ import math
 import torch
 import numpy as np
 from torch import nn
+# import torch.nn.functional as F
 from models.vae import VAE
 from models.beta import Flatten, View
 from models.beta import beta_celeb_encoder
@@ -35,7 +36,7 @@ class MaskedLinear(nn.Linear):
 
     def forward(self, x):
         weight = self.weight * self.mask
-        return F.linear(x, weight, self.bias)
+        return nn.functional.linear(x, weight, self.bias)
 
 
 def beta_decoder(args):
