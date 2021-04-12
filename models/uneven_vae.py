@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 21:43:45 AEST
+# --- Last Modified: Mon 12 Apr 2021 23:16:05 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -28,14 +28,24 @@ from logger.imaging import ShowRecon, LatentWalk, ReconToTb
 
 
 class MaskedLinear(nn.Linear):
-    def __init__(self, in_features, out_features, mask, bias=True):
+    def __init__(self, in_features, out_features, mask, bias=True, max_rate=0):
         super().__init__(in_features, out_features, bias)
         # self.weight: (out_features, in_features)
         self.mask = mask  # (out_features, in_features)
         # print('mask:', self.mask)
+        self.use_dropout = (max_rate > 0)
+        if self.use_dropout:
+            dropout_rates = np.linspace(0, max_rate, in_features)
+            self.dropout_layers = nn.ModuleList([nn.Dropout(r) for r in dropout_rates])
 
     def forward(self, x):
-        weight = self.weight * self.mask
+        mask = self.mask
+        if self.use_dropout:
+            mask_ls = []
+            for i, dp in enumerate(self.dropout_layers):
+                mask_ls.append(dp(mask[:, i:i+1]))
+            mask = torch.cat(mask_ls, dim=1)
+        weight = self.weight * mask
         return nn.functional.linear(x, weight, self.bias)
 
 
@@ -47,6 +57,9 @@ def beta_decoder(args):
         mask_segs = torch.triu(torch.ones(args.latents, args.latents)).repeat([n_segs, 1])
         mask = torch.flip(torch.cat([mask_segs, torch.triu(torch.ones(n_resi, args.latents))], dim=0), [1]).to('cuda')
         first_layer = MaskedLinear(args.latents, 256, mask)
+    elif args.uneven_w_max_dropout_rate > 0:
+        mask = torch.ones(256, args.latents)
+        first_layer = MaskedLinear(args.latents, 256, mask, max_rate=args.uneven_w_max_dropout_rate)
     else:
         first_layer = nn.Linear(args.latents, 256)
     return nn.Sequential(
