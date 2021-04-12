@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 16:30:06 AEST
+# --- Last Modified: Mon 12 Apr 2021 16:38:08 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -39,7 +39,7 @@ class UnevenVAE(VAE):
             val_pre_softplus = nn.Parameter(torch.normal(mean=torch.zeros([])), requires_grad=True)
             self.uneven_reg_maxval = nn.functional.softplus(val_pre_softplus)
         else:
-            self.uneven_reg_maxval = args.uneven_reg_maxval
+            self.uneven_reg_maxval = torch.tensor(args.uneven_reg_maxval, dtype=torch.float32)
         self.exp_uneven_reg = args.exp_uneven_reg
         self.uneven_reg_lambda = args.uneven_reg_lambda
         self.uneven_reg_encoder_lambda = args.uneven_reg_encoder_lambda
@@ -81,7 +81,7 @@ class UnevenVAE(VAE):
         '''
         weight: (out_dim, in_dim)
         '''
-        reg = torch.linspace(0., self.uneven_reg_maxval, weight.size(1)).to('cuda')
+        reg = torch.linspace(0., self.uneven_reg_maxval.item(), weight.size(1)).to('cuda')
         # print('reg:', reg)
         if self.exp_uneven_reg:
             reg = torch.exp(reg)
