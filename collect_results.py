@@ -8,7 +8,7 @@
 
 # --- File Name: collect_results.py
 # --- Creation Date: 02-02-2021
-# --- Last Modified: Tue 02 Feb 2021 19:15:09 AEDT
+# --- Last Modified: Mon 12 Apr 2021 15:20:09 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -16,6 +16,7 @@ Collect results from a directory.
 """
 
 import argparse
+import torch
 import os
 import pdb
 import glob
@@ -23,7 +24,6 @@ import numpy as np
 import pickle
 import pandas as pd
 import re
-import torch
 
 from collections import OrderedDict
 
