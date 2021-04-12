@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 16:38:08 AEST
+# --- Last Modified: Mon 12 Apr 2021 16:40:26 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -74,7 +74,7 @@ class UnevenVAE(VAE):
         tensorboard_logs = {'metric/loss': loss, 'metric/recon_loss': recon_loss, 'metric/total_kl': total_kl,
                             'metric/beta_kl': beta_kl, 'metric/uneven_loss': uneven_loss,
                             'metric/uneven_enc_loss': uneven_enc_loss, 'metric/uneven_dec_loss': uneven_loss - uneven_enc_loss,
-                            'metric/uneven_reg_maxval': self.uneven_reg_maxval}
+                            'metric/uneven_reg_maxval': self.uneven_reg_maxval.item()}
         return {'loss': loss, 'out': tensorboard_logs, 'state': state}
 
     def uneven_loss(self, weight, loss_lambda):
