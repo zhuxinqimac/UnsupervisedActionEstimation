@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Sun 11 Apr 2021 18:28:55 AEST
+# --- Last Modified: Mon 12 Apr 2021 16:30:06 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -35,7 +35,11 @@ class UnevenVAE(VAE):
             if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
                     isinstance(p, nn.ConvTranspose2d):
                 torch.nn.init.xavier_uniform_(p.weight)
-        self.uneven_reg_maxval = args.uneven_reg_maxval
+        if args.uneven_reg_maxval < 0:
+            val_pre_softplus = nn.Parameter(torch.normal(mean=torch.zeros([])), requires_grad=True)
+            self.uneven_reg_maxval = nn.functional.softplus(val_pre_softplus)
+        else:
+            self.uneven_reg_maxval = args.uneven_reg_maxval
         self.exp_uneven_reg = args.exp_uneven_reg
         self.uneven_reg_lambda = args.uneven_reg_lambda
         self.uneven_reg_encoder_lambda = args.uneven_reg_encoder_lambda
@@ -69,7 +73,8 @@ class UnevenVAE(VAE):
         loss = recon_loss + beta_kl + uneven_loss
         tensorboard_logs = {'metric/loss': loss, 'metric/recon_loss': recon_loss, 'metric/total_kl': total_kl,
                             'metric/beta_kl': beta_kl, 'metric/uneven_loss': uneven_loss,
-                            'metric/uneven_enc_loss': uneven_enc_loss, 'metric/uneven_dec_loss': uneven_loss - uneven_enc_loss}
+                            'metric/uneven_enc_loss': uneven_enc_loss, 'metric/uneven_dec_loss': uneven_loss - uneven_enc_loss,
+                            'metric/uneven_reg_maxval': self.uneven_reg_maxval}
         return {'loss': loss, 'out': tensorboard_logs, 'state': state}
 
     def uneven_loss(self, weight, loss_lambda):
