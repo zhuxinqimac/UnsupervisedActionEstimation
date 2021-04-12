@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 16:48:14 AEST
+# --- Last Modified: Mon 12 Apr 2021 17:51:20 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -20,13 +20,45 @@ import numpy as np
 from torch import nn
 from models.vae import VAE
 from models.beta import Flatten, View
-from models.beta import beta_celeb_encoder, beta_celeb_decoder
+from models.beta import beta_celeb_encoder
+from models.beta import beta_celeb_decoder
 from logger.custom_imaging import ShowReconX, LatentWalkLie
 from logger.imaging import ShowRecon, LatentWalk, ReconToTb
 
+
+class MaskedLinear(nn.Linear):
+    def __init__(self, in_features, out_features, mask, bias=True):
+        super().__init__(in_features, out_features, bias)
+        # self.weight: (out_features, in_features)
+        self.mask = mask  # (out_features, in_features)
+
+    def forward(self, x):
+        self.weight = self.weight * mask
+        return F.linear(input, self.weight, self.bias)
+
+
+def beta_decoder(args):
+    if args.uneven_masked_w:
+        # mask = torch.flip(torch.triu(torch.ones(256, args.latents)), [1])
+        n_segs = 256 // args.latents
+        n_resi = 256 % args.latents
+        mask_segs = torch.triu(torch.ones(args.latents, args.latents)).repeat([n_segs, 1])
+        mask = torch.flip(torch.cat([mask_segs, torch.triu(torch.ones(n_resi, args.latents))], dim=0), [1])
+        first_layer = MaskedLinear(args.latents, 256, mask)
+    else:
+        first_layer = nn.Linear(args.latents, 256)
+    return nn.Sequential(
+        first_layer, nn.ReLU(True), nn.Linear(256, 1024),
+        nn.ReLU(True), View(64, 4, 4), nn.ConvTranspose2d(64, 64, 4, 2, 1),
+        nn.ReLU(True), nn.ConvTranspose2d(64, 32, 4, 2, 1), nn.ReLU(True),
+        nn.ConvTranspose2d(32, 32, 4, 2, 1), nn.ReLU(True), nn.ConvTranspose2d(32, args.nc, 4, 2, 1),
+        # nn.Sigmoid()
+    )
+
+
 class UnevenVAE(VAE):
     def __init__(self, args):
-        super().__init__(beta_celeb_encoder(args), beta_celeb_decoder(args), args.beta, args.capacity, args.capacity_leadin)
+        super().__init__(beta_celeb_encoder(args), beta_decoder(args), args.beta, args.capacity, args.capacity_leadin)
         for p in self.encoder.modules():
             if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
                     isinstance(p, nn.ConvTranspose2d):
