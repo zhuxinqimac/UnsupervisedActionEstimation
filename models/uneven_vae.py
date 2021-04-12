@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 17:51:20 AEST
+# --- Last Modified: Mon 12 Apr 2021 18:03:46 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -31,10 +31,11 @@ class MaskedLinear(nn.Linear):
         super().__init__(in_features, out_features, bias)
         # self.weight: (out_features, in_features)
         self.mask = mask  # (out_features, in_features)
+        print('mask:', self.mask)
 
     def forward(self, x):
-        self.weight = self.weight * mask
-        return F.linear(input, self.weight, self.bias)
+        weight = self.weight * self.mask
+        return F.linear(x, weight, self.bias)
 
 
 def beta_decoder(args):
