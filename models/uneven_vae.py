@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 16:42:12 AEST
+# --- Last Modified: Mon 12 Apr 2021 16:48:14 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -35,11 +35,12 @@ class UnevenVAE(VAE):
             if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
                     isinstance(p, nn.ConvTranspose2d):
                 torch.nn.init.xavier_uniform_(p.weight)
-        if args.uneven_reg_maxval < 0:
-            val_pre_softplus = nn.Parameter(torch.normal(mean=10 * torch.ones([])), requires_grad=True)
-            self.uneven_reg_maxval = nn.functional.softplus(val_pre_softplus)
-        else:
-            self.uneven_reg_maxval = torch.tensor(args.uneven_reg_maxval, dtype=torch.float32)
+        # if args.uneven_reg_maxval < 0:
+            # val_pre_softplus = nn.Parameter(torch.normal(mean=10 * torch.ones([])), requires_grad=True)
+            # self.uneven_reg_maxval = nn.functional.softplus(val_pre_softplus)
+        # else:
+            # self.uneven_reg_maxval = torch.tensor(args.uneven_reg_maxval, dtype=torch.float32)
+        self.uneven_reg_maxval = args.uneven_reg_maxval
         self.exp_uneven_reg = args.exp_uneven_reg
         self.uneven_reg_lambda = args.uneven_reg_lambda
         self.uneven_reg_encoder_lambda = args.uneven_reg_encoder_lambda
@@ -74,14 +75,14 @@ class UnevenVAE(VAE):
         tensorboard_logs = {'metric/loss': loss, 'metric/recon_loss': recon_loss, 'metric/total_kl': total_kl,
                             'metric/beta_kl': beta_kl, 'metric/uneven_loss': uneven_loss,
                             'metric/uneven_enc_loss': uneven_enc_loss, 'metric/uneven_dec_loss': uneven_loss - uneven_enc_loss,
-                            'metric/uneven_reg_maxval': self.uneven_reg_maxval.item()}
+                            'metric/uneven_reg_maxval': self.uneven_reg_maxval}
         return {'loss': loss, 'out': tensorboard_logs, 'state': state}
 
     def uneven_loss(self, weight, loss_lambda):
         '''
         weight: (out_dim, in_dim)
         '''
-        reg = torch.linspace(0., self.uneven_reg_maxval.item(), weight.size(1)).to('cuda')
+        reg = torch.linspace(0., self.uneven_reg_maxval, weight.size(1)).to('cuda')
         # print('reg:', reg)
         if self.exp_uneven_reg:
             reg = torch.exp(reg)
