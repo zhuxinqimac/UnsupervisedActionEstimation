@@ -91,7 +91,8 @@ parser.add_argument('--exp_uneven_reg', default=False, type=_str_to_bool, help='
 parser.add_argument('--uneven_reg_lambda', default=0, type=float, help='The (decoder) lambda for reg in uneven vae loss.')
 parser.add_argument('--uneven_reg_encoder_lambda', default=0, type=float, help='The encoder lambda for reg in uneven vae loss.')
 parser.add_argument('--uneven_masked_w', default=False, type=_str_to_bool, help='If use masked W in first layer of uneven vae decoder.')
-
+parser.add_argument('--use_cumax_adaptive', default=False, type=_str_to_bool, help='If use adaptive reg with cumax in uneven vae loss.')
+parser.add_argument('--orth_lambda', default=0, type=float, help='The orthogonal reg lambda in uneven vae.')
 
 args = parser.parse_args()
 

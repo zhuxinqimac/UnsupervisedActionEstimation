@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 18:07:39 AEST
+# --- Last Modified: Mon 12 Apr 2021 21:43:45 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -78,6 +78,10 @@ class UnevenVAE(VAE):
         self.exp_uneven_reg = args.exp_uneven_reg
         self.uneven_reg_lambda = args.uneven_reg_lambda
         self.uneven_reg_encoder_lambda = args.uneven_reg_encoder_lambda
+        self.use_cumax_adaptive = args.use_cumax_adaptive
+        self.orth_lambda = args.orth_lambda
+        if self.use_cumax_adaptive:
+            self.adap_logits = nn.Parameter(torch.normal(mean=torch.zeros(args.latents)), requires_grad=True)
 
     def main_step(self, batch, batch_nb, loss_fn):
 
@@ -90,7 +94,8 @@ class UnevenVAE(VAE):
         recon_loss = loss_fn(x_hat, x)
 
         weight_to_uneven = self.decoder[0].weight  # (out_dim, n_lat)
-        uneven_loss = self.uneven_loss(weight_to_uneven, self.uneven_reg_lambda)
+        uneven_loss, reg = self.uneven_loss(weight_to_uneven, self.uneven_reg_lambda)
+        orth_loss = self.orth_loss(weight_to_uneven, self.orth_lambda)
         uneven_enc_loss = 0.
         if self.uneven_reg_encoder_lambda > 0:
             weight_enc_to_uneven = self.encoder[-1].weight  # (n_lat * 2, in_dim)
@@ -105,20 +110,35 @@ class UnevenVAE(VAE):
         state = self.make_state(batch_nb, x_hat, x, y, mu, lv, z)
         self.global_step += 1
 
-        loss = recon_loss + beta_kl + uneven_loss
+        loss = recon_loss + beta_kl + uneven_loss + orth_loss
         tensorboard_logs = {'metric/loss': loss, 'metric/recon_loss': recon_loss, 'metric/total_kl': total_kl,
                             'metric/beta_kl': beta_kl, 'metric/uneven_loss': uneven_loss,
                             'metric/uneven_enc_loss': uneven_enc_loss, 'metric/uneven_dec_loss': uneven_loss - uneven_enc_loss,
-                            'metric/uneven_reg_maxval': self.uneven_reg_maxval}
+                            'metric/uneven_reg_maxval': self.uneven_reg_maxval, 'metric/orth_loss': orth_loss}
+        for i in range(z.size(-1)):
+            tensorboard_logs['metric/reg_'+str(i)] = reg[i]
         return {'loss': loss, 'out': tensorboard_logs, 'state': state}
 
     def uneven_loss(self, weight, loss_lambda):
         '''
         weight: (out_dim, in_dim)
         '''
-        reg = torch.linspace(0., self.uneven_reg_maxval, weight.size(1)).to('cuda')
+        if self.use_cumax_adaptive:
+            reg_softmax = nn.functional.softmax(self.adap_logits, dim=0)
+            reg = torch.cumsum(reg_softmax, dim=0) * self.uneven_reg_maxval
+        else:
+            reg = torch.linspace(0., self.uneven_reg_maxval, weight.size(1)).to('cuda')
         # print('reg:', reg)
         if self.exp_uneven_reg:
             reg = torch.exp(reg)
         w_in = torch.sum(weight * weight, dim=0)  # (in_dim)
-        return torch.sum(w_in * reg, dim=0) * loss_lambda
+        return torch.sum(w_in * reg, dim=0) * loss_lambda, reg
+
+    def orth_loss(self, weight, loss_lambda):
+        '''
+        weight: (out_dim, n_lat)
+        '''
+        w_mul = torch.matmul(weight.transpose(0, 1), weight)  # (n_lat, n_lat)
+        ij_mask = 1. - torch.eye(w_mul.size(0), dtype=torch.float32).to('cuda')
+        masked_w = w_mul * ij_mask
+        return torch.sum(masked_w * masked_w) * loss_lambda
