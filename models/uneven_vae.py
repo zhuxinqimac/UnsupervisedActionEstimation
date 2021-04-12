@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 16:40:26 AEST
+# --- Last Modified: Mon 12 Apr 2021 16:42:12 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -36,7 +36,7 @@ class UnevenVAE(VAE):
                     isinstance(p, nn.ConvTranspose2d):
                 torch.nn.init.xavier_uniform_(p.weight)
         if args.uneven_reg_maxval < 0:
-            val_pre_softplus = nn.Parameter(torch.normal(mean=torch.zeros([])), requires_grad=True)
+            val_pre_softplus = nn.Parameter(torch.normal(mean=10 * torch.ones([])), requires_grad=True)
             self.uneven_reg_maxval = nn.functional.softplus(val_pre_softplus)
         else:
             self.uneven_reg_maxval = torch.tensor(args.uneven_reg_maxval, dtype=torch.float32)
