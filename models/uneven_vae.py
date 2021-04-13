@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Mon 12 Apr 2021 23:30:46 AEST
+# --- Last Modified: Tue 13 Apr 2021 21:43:45 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -74,14 +74,14 @@ def beta_decoder(args):
 class UnevenVAE(VAE):
     def __init__(self, args):
         super().__init__(beta_celeb_encoder(args), beta_decoder(args), args.beta, args.capacity, args.capacity_leadin)
-        for p in self.encoder.modules():
-            if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
-                    isinstance(p, nn.ConvTranspose2d):
-                torch.nn.init.xavier_uniform_(p.weight)
-        for p in self.decoder.modules():
-            if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
-                    isinstance(p, nn.ConvTranspose2d):
-                torch.nn.init.xavier_uniform_(p.weight)
+        # for p in self.encoder.modules():
+            # if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                    # isinstance(p, nn.ConvTranspose2d):
+                # torch.nn.init.xavier_uniform_(p.weight)
+        # for p in self.decoder.modules():
+            # if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                    # isinstance(p, nn.ConvTranspose2d):
+                # torch.nn.init.xavier_uniform_(p.weight)
         # if args.uneven_reg_maxval < 0:
             # val_pre_softplus = nn.Parameter(torch.normal(mean=10 * torch.ones([])), requires_grad=True)
             # self.uneven_reg_maxval = nn.functional.softplus(val_pre_softplus)
@@ -94,7 +94,7 @@ class UnevenVAE(VAE):
         self.use_cumax_adaptive = args.use_cumax_adaptive
         self.orth_lambda = args.orth_lambda
         if self.use_cumax_adaptive:
-            self.adap_logits = nn.Parameter(torch.normal(mean=torch.zeros(args.latents)), requires_grad=True)
+            self.adap_logits = nn.Parameter(torch.ones(args.latents), requires_grad=True)
 
     def main_step(self, batch, batch_nb, loss_fn):
 
