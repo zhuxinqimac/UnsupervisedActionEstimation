@@ -8,7 +8,7 @@
 
 # --- File Name: shapes3d.py
 # --- Creation Date: 16-01-2021
-# --- Last Modified: Sat 16 Jan 2021 22:03:21 AEDT
+# --- Last Modified: Tue 13 Apr 2021 16:55:42 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -45,7 +45,7 @@ class shapes3d(Dataset):
         self.latents_sizes = np.array([10, 10, 10, 8, 4, 15])
         self.latents_bases = np.concatenate((self.latents_sizes[::-1].cumprod()[::-1][1:], np.array([1, ])))
         # self.latents_classes = np.load(os.path.join(self.file, "latents_classes.npy"))
-        self.latents_classes = self.dataset_zip['labels']  # array shape [480000,6], float64
+        self.latents_classes = self.dataset_zip['labels'][:]  # array shape [480000,6], float64
 
         # if fixed_shape is not None:
             # self._reduce_data(fixed_shape)
