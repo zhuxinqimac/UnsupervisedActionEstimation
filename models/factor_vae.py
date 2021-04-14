@@ -11,15 +11,20 @@ class Discriminator(nn.Module):
         self.z_dim = z_dim
         self.net = nn.Sequential(
             nn.Linear(z_dim, 1000),
-            nn.LeakyReLU(0.2, True),
+            # nn.LeakyReLU(0.2, True),
+            nn.LeakyReLU(True),
             nn.Linear(1000, 1000),
-            nn.LeakyReLU(0.2, True),
+            # nn.LeakyReLU(0.2, True),
+            nn.LeakyReLU(True),
             nn.Linear(1000, 1000),
-            nn.LeakyReLU(0.2, True),
+            # nn.LeakyReLU(0.2, True),
+            nn.LeakyReLU(True),
             nn.Linear(1000, 1000),
-            nn.LeakyReLU(0.2, True),
+            # nn.LeakyReLU(0.2, True),
+            nn.LeakyReLU(True),
             nn.Linear(1000, 1000),
-            nn.LeakyReLU(0.2, True),
+            # nn.LeakyReLU(0.2, True),
+            nn.LeakyReLU(True),
             nn.Linear(1000, 2),
             # nn.Softmax(-1)
         )
@@ -32,14 +37,14 @@ class FactorVAE(VAE):
     def __init__(self, encoder, decoder, beta, latents, max_capacity=None, capacity_leadin=None, gamma=6.4):
         super().__init__(encoder, decoder, beta, max_capacity, capacity_leadin)
         self.discriminator = Discriminator(latents)
-        # self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4, betas=(0.5, 0.9))
-        self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4)
+        self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4, betas=(0.5, 0.9))
+        # self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4)
         self.gamma = float(gamma) if gamma is not None else 6.4
 
     def permute_dims(self, z):
         assert z.dim() == 2
 
-        z = z.permute(1, 0)
+        # z = z.permute(1, 0)
         B, _ = z.size()
         perm_z = []
         for z_j in z.split(1, 1):
@@ -47,7 +52,8 @@ class FactorVAE(VAE):
             perm_z_j = z_j[perm]
             perm_z.append(perm_z_j)
 
-        return torch.cat(perm_z, 1).permute(1, 0)
+        # return torch.cat(perm_z, 1).permute(1, 0)
+        return torch.cat(perm_z, 1)
 
     def main_step(self, batch, batch_nb, loss_fn):
         out = super().main_step(batch, batch_nb, loss_fn)
