@@ -98,6 +98,10 @@ parser.add_argument('--uneven_w_max_dropout_rate', default=0, type=float, help='
 # FactorVAE
 parser.add_argument('--factor_vae_gamma', default=6.4, type=float, help='The gamma in factor vae.')
 
+# DIP-VAE
+parser.add_argument('--lambda_d', default=1, type=float, help='The lambda_d in DIP vae.')
+parser.add_argument('--lambda_od', default=10, type=float, help='The lambda_od in DIP vae.')
+
 args = parser.parse_args()
 
 

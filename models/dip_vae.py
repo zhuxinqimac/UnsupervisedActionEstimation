@@ -2,7 +2,7 @@ import torch
 from models.vae import VAE
 
 
-lambda_d, lambda_od = 100, 10
+# lambda_d, lambda_od = 100, 10
 
 
 def matrix_diag(diagonal):
@@ -16,7 +16,7 @@ def matrix_diag(diagonal):
     return result
 
 
-def dip_vae_i_loss(mu):
+def dip_vae_i_loss(mu, lambda_d, lambda_od):
     exp_mu = mu.mean(0)
     exp_mu_mu_t = (mu.unsqueeze(1) * mu.unsqueeze(2)).mean(0)
 
@@ -30,7 +30,7 @@ def dip_vae_i_loss(mu):
     return regulariser_od + regulariser_d
 
 
-def dip_vae_ii_loss(mu, lv):
+def dip_vae_ii_loss(mu, lv, lambda_d, lambda_od):
     sigma = matrix_diag(lv.exp())
     exp_cov = sigma.mean(0)
     exp_mu = mu.mean(0)
@@ -49,14 +49,14 @@ def dip_vae_ii_loss(mu, lv):
 
 
 class DipVAE(VAE):
-    def __init__(self, encoder, decoder, beta, dip_type='ii', max_capacity=None, capacity_leadin=None):
+    def __init__(self, encoder, decoder, beta, dip_type='ii', max_capacity=None, capacity_leadin=None, lambda_d, lambda_od):
         super().__init__(encoder, decoder, beta, max_capacity, capacity_leadin)
         self.type = dip_type
 
         if self.type == 'dip_vae_i':
-            self.dip_loss = lambda mu, lv: dip_vae_i_loss(mu)
+            self.dip_loss = lambda mu, lv: dip_vae_i_loss(mu, lambda_d, lambda_od)
         else:
-            self.dip_loss = lambda mu, lv: dip_vae_ii_loss(mu, lv)
+            self.dip_loss = lambda mu, lv: dip_vae_ii_loss(mu, lv, lambda_d, lambda_od)
 
     def main_step(self, batch, batch_nb, loss_fn):
         out = super().main_step(batch, batch_nb, loss_fn)
@@ -73,7 +73,6 @@ class DipVAE(VAE):
         return {'loss': vae_loss + dip_loss, 'out': tensorboard_logs,
                 'state': state}
 
-
 def dip_vae(args):
     if args.dataset == 'forward':
         from models.forward_vae import ForwardDecoder, ForwardEncoder
@@ -85,3 +84,11 @@ def dip_vae(args):
     dip_type = args.base_model if args.model in ['rl_group_vae'] else args.model
 
     return DipVAE(encoder, decoder, args.beta, dip_type, args.capacity, args.capacity_leadin)
+
+def dip_conv_vae(args):
+    from models.beta import beta_celeb_encoder, beta_celeb_decoder
+    encoder, decoder = beta_celeb_encoder(args), beta_celeb_decoder(args)
+
+    dip_type = 'dip_vae_i' if args.model == 'dip_conv_vae_i' else 'dip_vae_ii'
+
+    return DipVAE(encoder, decoder, args.beta, dip_type, args.capacity, args.capacity_leadin, args,lambda_d, args.lambda_od)
