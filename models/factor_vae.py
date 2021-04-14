@@ -36,8 +36,8 @@ class Discriminator(nn.Module):
 class FactorVAE(VAE):
     def __init__(self, encoder, decoder, beta, latents, max_capacity=None, capacity_leadin=None, gamma=6.4):
         super().__init__(encoder, decoder, beta, max_capacity, capacity_leadin)
-        self.discriminator = Discriminator(latents)
-        self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4, betas=(0.5, 0.9))
+        self.discriminator = [Discriminator(latents)]  # Exclude from register.
+        self.disc_opt = optim.Adam(self.discriminator[0].parameters(), lr=1e-4, betas=(0.5, 0.9))
         # self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4)
         self.gamma = float(gamma) if gamma is not None else 6.4
 
@@ -60,18 +60,18 @@ class FactorVAE(VAE):
         state = out['state']
         x, y, mu, lv, z, x_hat = state['x'], state['y'], state['mu'], state['lv'], state['z'], state['x_hat']
 
-        D_z = self.discriminator(z.detach())
+        D_z = self.discriminator[0](z.detach())
         z_perm = self.permute_dims(z)
-        D_z_perm = self.discriminator(z_perm.detach())
-        D_tc_loss = 0.5 * (F.cross_entropy(D_z, torch.zeros(D_z.shape[0]).to(D_z.device).long())
-                           + F.cross_entropy(D_z_perm, torch.ones(D_z.shape[0]).to(D_z.device).long()))
+        D_z_perm = self.discriminator[0](z_perm.detach())
+        D_tc_loss = 0.5 * (F.cross_entropy(D_z, torch.zeros(D_z.shape[0], dtype=torch.long).to(D_z.device))
+                           + F.cross_entropy(D_z_perm, torch.ones(D_z.shape[0], dtype=torch.long).to(D_z.device)))
 
         if self.training:
             self.disc_opt.zero_grad()
             D_tc_loss.backward()
             self.disc_opt.step()
 
-        D_z = self.discriminator(z)
+        D_z = self.discriminator[0](z)
         vae_loss = out['loss']
         vae_tc_loss = (D_z[:, :1] - D_z[:, 1:]).mean() * self.gamma
 
