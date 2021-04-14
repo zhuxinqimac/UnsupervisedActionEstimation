@@ -32,7 +32,8 @@ class FactorVAE(VAE):
     def __init__(self, encoder, decoder, beta, latents, max_capacity=None, capacity_leadin=None, gamma=6.4):
         super().__init__(encoder, decoder, beta, max_capacity, capacity_leadin)
         self.discriminator = Discriminator(latents)
-        self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4, betas=(0.5, 0.9))
+        # self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4, betas=(0.5, 0.9))
+        self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4)
         self.gamma = float(gamma) if gamma is not None else 6.4
 
     def permute_dims(self, z):
