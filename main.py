@@ -8,7 +8,7 @@ parser = argparse.ArgumentParser('Disentanglement')
 parser.add_argument('--epochs', default=50, type=int)
 parser.add_argument('--model', default='forward', type=str, choices=['beta_shapes', 'beta_celeb', 'forward', 'rgrvae', 'dip_vae_i', 'dip_vae_ii',
                                                                      'beta_forward', 'dforward', 'lie_group', 'lie_group_action', 'lie_group_action_simple',
-                                                                     'lie_group_rl', 'factor_vae', 'uneven_vae'])
+                                                                     'lie_group_rl', 'factor_vae', 'factor_conv_vae', 'uneven_vae'])
 parser.add_argument('--dataset', default='flatland', type=str, choices=['flatland', 'dsprites', 'teapot', 'teapot_nocolor', 'shapes3d'])
 parser.add_argument('--fixed_shape', default=None, type=int, help='Fixed shape in dsprites. None for not fixed.')
 parser.add_argument('--data-path', default=None, type=str, help='Path to dataset root')
@@ -94,6 +94,9 @@ parser.add_argument('--uneven_masked_w', default=False, type=_str_to_bool, help=
 parser.add_argument('--use_cumax_adaptive', default=False, type=_str_to_bool, help='If use adaptive reg with cumax in uneven vae loss.')
 parser.add_argument('--orth_lambda', default=0, type=float, help='The orthogonal reg lambda in uneven vae.')
 parser.add_argument('--uneven_w_max_dropout_rate', default=0, type=float, help='The maximal dropout rate in w in uneven vae decoder (between [0, 1)).')
+
+# FactorVAE
+parser.add_argument('--factor_vae_gamma', default=6.4, type=float, help='The gamma in factor vae.')
 
 args = parser.parse_args()
 

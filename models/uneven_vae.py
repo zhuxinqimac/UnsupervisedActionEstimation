@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Tue 13 Apr 2021 21:43:45 AEST
+# --- Last Modified: Tue 13 Apr 2021 22:27:02 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -114,7 +114,7 @@ class UnevenVAE(VAE):
             weight_enc_to_uneven = self.encoder[-1].weight  # (n_lat * 2, in_dim)
             weight_enc_to_uneven = torch.transpose(
                 weight_enc_to_uneven[:weight_enc_to_uneven.size(0)//2, ...], 0, 1)
-            uneven_enc_loss = self.uneven_loss(weight_enc_to_uneven, 
+            uneven_enc_loss, _ = self.uneven_loss(weight_enc_to_uneven, 
                                                self.uneven_reg_encoder_lambda)
             uneven_loss += uneven_enc_loss
 
