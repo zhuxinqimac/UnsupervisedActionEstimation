@@ -83,7 +83,7 @@ def dip_vae(args):
 
     dip_type = args.base_model if args.model in ['rl_group_vae'] else args.model
 
-    return DipVAE(encoder, decoder, args.beta, dip_type, args.capacity, args.capacity_leadin)
+    return DipVAE(encoder, decoder, args.beta, args.lambda_d, args.lambda_od, dip_type, args.capacity, args.capacity_leadin)
 
 def dip_conv_vae(args):
     from models.beta import beta_celeb_encoder, beta_celeb_decoder
@@ -91,4 +91,4 @@ def dip_conv_vae(args):
 
     dip_type = 'dip_vae_i' if args.model == 'dip_conv_vae_i' else 'dip_vae_ii'
 
-    return DipVAE(encoder, decoder, args.beta, args,lambda_d, args.lambda_od, dip_type, args.capacity, args.capacity_leadin)
+    return DipVAE(encoder, decoder, args.beta, args.lambda_d, args.lambda_od, dip_type, args.capacity, args.capacity_leadin)
