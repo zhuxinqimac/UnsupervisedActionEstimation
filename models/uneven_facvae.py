@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_facvae.py
 # --- Creation Date: 13-04-2021
-# --- Last Modified: Wed 14 Apr 2021 23:47:21 AEST
+# --- Last Modified: Wed 14 Apr 2021 23:49:01 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -33,10 +33,10 @@ from logger.imaging import ShowRecon, LatentWalk, ReconToTb
 class UnevenFacVAE(UnevenVAE):
     def __init__(self, args):
         super().__init__(args)
-        self.discriminator = [Discriminator(latents).cuda()]  # Exclude from register.
+        self.discriminator = [Discriminator(args.latents).cuda()]  # Exclude from register.
         self.disc_opt = optim.Adam(self.discriminator[0].parameters(), lr=1e-4, betas=(0.5, 0.9))
         # self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4)
-        self.gamma = float(gamma) if gamma is not None else 6.4
+        self.gamma = float(args.factor_vae_gamma) if args.factor_vae_gamma is not None else 6.4
 
     def permute_dims(self, z):
         assert z.dim() == 2
