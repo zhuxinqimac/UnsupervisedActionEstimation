@@ -49,7 +49,7 @@ def dip_vae_ii_loss(mu, lv, lambda_d, lambda_od):
 
 
 class DipVAE(VAE):
-    def __init__(self, encoder, decoder, beta, dip_type='ii', max_capacity=None, capacity_leadin=None, lambda_d, lambda_od):
+    def __init__(self, encoder, decoder, beta, lambda_d, lambda_od, dip_type='ii', max_capacity=None, capacity_leadin=None):
         super().__init__(encoder, decoder, beta, max_capacity, capacity_leadin)
         self.type = dip_type
 
@@ -91,4 +91,4 @@ def dip_conv_vae(args):
 
     dip_type = 'dip_vae_i' if args.model == 'dip_conv_vae_i' else 'dip_vae_ii'
 
-    return DipVAE(encoder, decoder, args.beta, dip_type, args.capacity, args.capacity_leadin, args,lambda_d, args.lambda_od)
+    return DipVAE(encoder, decoder, args.beta, args,lambda_d, args.lambda_od, dip_type, args.capacity, args.capacity_leadin)
