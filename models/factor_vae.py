@@ -21,7 +21,7 @@ class Discriminator(nn.Module):
             nn.Linear(1000, 1000),
             nn.LeakyReLU(0.2, True),
             nn.Linear(1000, 2),
-            nn.Softmax(-1)
+            # nn.Softmax(-1)
         )
 
     def forward(self, z):
