@@ -92,7 +92,9 @@ parser.add_argument('--exp_uneven_reg', default=False, type=_str_to_bool, help='
 parser.add_argument('--uneven_reg_lambda', default=0, type=float, help='The (decoder) lambda for reg in uneven vae loss.')
 parser.add_argument('--uneven_reg_encoder_lambda', default=0, type=float, help='The encoder lambda for reg in uneven vae loss.')
 parser.add_argument('--uneven_masked_w', default=False, type=_str_to_bool, help='If use masked W in first layer of uneven vae decoder.')
-parser.add_argument('--use_cumax_adaptive', default=False, type=_str_to_bool, help='If use adaptive reg with cumax in uneven vae loss.')
+# parser.add_argument('--use_cumax_adaptive', default=False, type=_str_to_bool, help='If use adaptive reg with cumax in uneven vae loss.')
+parser.add_argument('--reg_type', default='linear', choices=['linear', 'exp', 'cumax_ada', 'monoconst_ada'],
+                    type=str, help='What type of regularization to use in uneven vae loss.')
 parser.add_argument('--orth_lambda', default=0, type=float, help='The orthogonal reg lambda in uneven vae.')
 parser.add_argument('--uneven_w_max_dropout_rate', default=0, type=float, help='The maximal dropout rate in w in uneven vae decoder (between [0, 1)).')
 parser.add_argument('--xav_init', default=False, type=_str_to_bool, help='If use Xavier init.')
