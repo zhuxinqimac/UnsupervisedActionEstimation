@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Sun 18 Apr 2021 21:48:39 AEST
+# --- Last Modified: Sun 18 Apr 2021 22:50:11 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -17,6 +17,7 @@ UnevenVAE Definition
 import math
 import torch
 import numpy as np
+import lpips
 from torch import nn
 # import torch.nn.functional as F
 from models.vae import VAE
@@ -90,6 +91,9 @@ class UnevenVAE(VAE):
         self.orth_lambda = args.orth_lambda
         if self.reg_type == 'cumax_ada' or self.reg_type == 'monoconst_ada':
             self.ada_logits = nn.Parameter(torch.ones(args.latents), requires_grad=True)
+        self.lpips_lambda = args.lpips_lambda
+        if self.lpips_lambda > 0:
+            self.lpips_fn = lpips.LPIPS(net='alex').cuda()
 
     def main_step(self, batch, batch_nb, loss_fn):
 
@@ -100,6 +104,12 @@ class UnevenVAE(VAE):
         x_hat = self.decode(z)
 
         recon_loss = loss_fn(x_hat, x)
+        if self.lpips_lambda > 0:
+            lpips_loss = self.lpips_lambda * \
+                torch.mean(self.lpips_fn.forward(x_hat.sigmoid() * 2 - 1, x * 2 - 1), dim=0)
+            # percept_dis_ls.append(lpips_fn.forward(imgs_1[j], imgs_2[j]))
+        else:
+            lpips_loss = 0.
 
         weight_to_uneven = self.decoder[0].weight  # (out_dim, n_lat)
         uneven_loss, reg = self.uneven_loss(weight_to_uneven, self.uneven_reg_lambda)
@@ -118,11 +128,12 @@ class UnevenVAE(VAE):
         state = self.make_state(batch_nb, x_hat, x, y, mu, lv, z)
         self.global_step += 1
 
-        loss = recon_loss + beta_kl + uneven_loss + orth_loss
+        loss = recon_loss + beta_kl + uneven_loss + orth_loss + lpips_loss
         tensorboard_logs = {'metric/loss': loss, 'metric/recon_loss': recon_loss, 'metric/total_kl': total_kl,
                             'metric/beta_kl': beta_kl, 'metric/uneven_loss': uneven_loss,
                             'metric/uneven_enc_loss': uneven_enc_loss, 'metric/uneven_dec_loss': uneven_loss - uneven_enc_loss,
-                            'metric/uneven_reg_maxval': self.uneven_reg_maxval, 'metric/orth_loss': orth_loss}
+                            'metric/uneven_reg_maxval': self.uneven_reg_maxval, 'metric/orth_loss': orth_loss,
+                            'metric/lpips_loss': lpips_loss}
         for i in range(z.size(-1)):
             tensorboard_logs['metric/reg_'+str(i)] = reg[i]
         return {'loss': loss, 'out': tensorboard_logs, 'state': state}
