@@ -106,9 +106,9 @@ def factor_vae(args):
         from models.beta import beta_shape_encoder, beta_shapes_decoder
         encoder, decoder = beta_shape_encoder(args), beta_shapes_decoder(args)
 
-    return FactorVAE(encoder, decoder, args.beta, args.latents, args.capacity, args.capacity_leadin, args.factor_vae_gamma)
+    return FactorVAE(encoder, decoder, args.beta, args.latents, args.capacity, args.capacity_leadin, args.factor_vae_gamma, args.xav_init)
 
 def factor_conv_vae(args):
     from models.beta import beta_celeb_encoder, beta_celeb_decoder
     encoder, decoder = beta_celeb_encoder(args), beta_celeb_decoder(args)
-    return FactorVAE(encoder, decoder, args.beta, args.latents, args.capacity, args.capacity_leadin, args.factor_vae_gamma)
+    return FactorVAE(encoder, decoder, args.beta, args.latents, args.capacity, args.capacity_leadin, args.factor_vae_gamma, args.xav_init)
