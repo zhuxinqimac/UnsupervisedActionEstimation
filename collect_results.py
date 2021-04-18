@@ -8,7 +8,7 @@
 
 # --- File Name: collect_results.py
 # --- Creation Date: 02-02-2021
-# --- Last Modified: Sun 18 Apr 2021 16:19:43 AEST
+# --- Last Modified: Sun 18 Apr 2021 16:21:19 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -133,9 +133,9 @@ def main():
     args.config_variables = parse_config_v(args.config_variables)
     res_dirs = glob.glob(os.path.join(args.in_dir, '*/'))
     dir_ctimes = [pathlib.Path(dir_name[:-1]).stat().st_ctime for dir_name in res_dirs]
-    dir_ctimes, res_dirs = zip(*sorted(zip(dir_ctimes, res_dirs)))
+    dir_ctimes, res_dirs = (list(t) for t in zip(*sorted(zip(dir_ctimes, res_dirs))))
     # print('res_dirs:', res_dirs)
-    res_dirs.sort()
+    # res_dirs.sort()
     results = {'_config': []}
     for k in moi:
         results[k+'.mean'] = []
