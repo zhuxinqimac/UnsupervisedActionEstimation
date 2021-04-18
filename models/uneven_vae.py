@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_vae.py
 # --- Creation Date: 11-04-2021
-# --- Last Modified: Sun 18 Apr 2021 21:34:13 AEST
+# --- Last Modified: Sun 18 Apr 2021 21:48:39 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -86,7 +86,7 @@ class UnevenVAE(VAE):
         self.uneven_reg_maxval = args.uneven_reg_maxval
         self.uneven_reg_lambda = args.uneven_reg_lambda
         self.uneven_reg_encoder_lambda = args.uneven_reg_encoder_lambda
-        self.reg_type == args.reg_type
+        self.reg_type = args.reg_type
         self.orth_lambda = args.orth_lambda
         if self.reg_type == 'cumax_ada' or self.reg_type == 'monoconst_ada':
             self.ada_logits = nn.Parameter(torch.ones(args.latents), requires_grad=True)
