@@ -8,7 +8,7 @@
 
 # --- File Name: uneven_facvae.py
 # --- Creation Date: 13-04-2021
-# --- Last Modified: Wed 14 Apr 2021 23:49:01 AEST
+# --- Last Modified: Sun 18 Apr 2021 17:17:28 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -37,6 +37,19 @@ class UnevenFacVAE(UnevenVAE):
         self.disc_opt = optim.Adam(self.discriminator[0].parameters(), lr=1e-4, betas=(0.5, 0.9))
         # self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4)
         self.gamma = float(args.factor_vae_gamma) if args.factor_vae_gamma is not None else 6.4
+        if args.xav_init:
+            for p in self.encoder.modules():
+                if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                        isinstance(p, nn.ConvTranspose2d):
+                    torch.nn.init.xavier_uniform_(p.weight)
+            for p in self.decoder.modules():
+                if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                        isinstance(p, nn.ConvTranspose2d):
+                    torch.nn.init.xavier_uniform_(p.weight)
+            for p in self.discriminator[0].modules():
+                if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                        isinstance(p, nn.ConvTranspose2d):
+                    torch.nn.init.xavier_uniform_(p.weight)
 
     def permute_dims(self, z):
         assert z.dim() == 2

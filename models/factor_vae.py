@@ -34,12 +34,25 @@ class Discriminator(nn.Module):
 
 
 class FactorVAE(VAE):
-    def __init__(self, encoder, decoder, beta, latents, max_capacity=None, capacity_leadin=None, gamma=6.4):
+    def __init__(self, encoder, decoder, beta, latents, max_capacity=None, capacity_leadin=None, gamma=6.4, xav_init=False):
         super().__init__(encoder, decoder, beta, max_capacity, capacity_leadin)
         self.discriminator = [Discriminator(latents).cuda()]  # Exclude from register.
         self.disc_opt = optim.Adam(self.discriminator[0].parameters(), lr=1e-4, betas=(0.5, 0.9))
         # self.disc_opt = optim.Adam(self.discriminator.parameters(), lr=1e-4)
         self.gamma = float(gamma) if gamma is not None else 6.4
+        if xav_init:
+            for p in self.encoder.modules():
+                if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                        isinstance(p, nn.ConvTranspose2d):
+                    torch.nn.init.xavier_uniform_(p.weight)
+            for p in self.decoder.modules():
+                if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                        isinstance(p, nn.ConvTranspose2d):
+                    torch.nn.init.xavier_uniform_(p.weight)
+            for p in self.discriminator[0].modules():
+                if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                        isinstance(p, nn.ConvTranspose2d):
+                    torch.nn.init.xavier_uniform_(p.weight)
 
     def permute_dims(self, z):
         assert z.dim() == 2

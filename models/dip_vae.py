@@ -49,7 +49,7 @@ def dip_vae_ii_loss(mu, lv, lambda_d, lambda_od):
 
 
 class DipVAE(VAE):
-    def __init__(self, encoder, decoder, beta, lambda_d, lambda_od, dip_type='ii', max_capacity=None, capacity_leadin=None):
+    def __init__(self, encoder, decoder, beta, lambda_d, lambda_od, dip_type='ii', max_capacity=None, capacity_leadin=None, xav_init=False):
         super().__init__(encoder, decoder, beta, max_capacity, capacity_leadin)
         self.type = dip_type
 
@@ -57,6 +57,16 @@ class DipVAE(VAE):
             self.dip_loss = lambda mu, lv: dip_vae_i_loss(mu, lambda_d, lambda_od)
         else:
             self.dip_loss = lambda mu, lv: dip_vae_ii_loss(mu, lv, lambda_d, lambda_od)
+
+        if xav_init:
+            for p in self.encoder.modules():
+                if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                        isinstance(p, nn.ConvTranspose2d):
+                    torch.nn.init.xavier_uniform_(p.weight)
+            for p in self.decoder.modules():
+                if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
+                        isinstance(p, nn.ConvTranspose2d):
+                    torch.nn.init.xavier_uniform_(p.weight)
 
     def main_step(self, batch, batch_nb, loss_fn):
         out = super().main_step(batch, batch_nb, loss_fn)
