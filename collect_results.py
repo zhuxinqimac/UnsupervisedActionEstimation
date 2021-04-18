@@ -8,7 +8,7 @@
 
 # --- File Name: collect_results.py
 # --- Creation Date: 02-02-2021
-# --- Last Modified: Mon 12 Apr 2021 15:20:09 AEST
+# --- Last Modified: Sun 18 Apr 2021 16:19:43 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -20,6 +20,7 @@ import torch
 import os
 import pdb
 import glob
+import pathlib
 import numpy as np
 import pickle
 import pandas as pd
@@ -131,6 +132,8 @@ def main():
 
     args.config_variables = parse_config_v(args.config_variables)
     res_dirs = glob.glob(os.path.join(args.in_dir, '*/'))
+    dir_ctimes = [pathlib.Path(dir_name[:-1]).stat().st_ctime for dir_name in res_dirs]
+    dir_ctimes, res_dirs = zip(*sorted(zip(dir_ctimes, res_dirs)))
     # print('res_dirs:', res_dirs)
     res_dirs.sort()
     results = {'_config': []}
@@ -139,6 +142,7 @@ def main():
         results[k+'.std'] = []
     results['n_samples'] = []
     results['path'] = []
+    results['ctime'] = []
     # results: {'_config': ['model1', 'model2'], 'fac.mean': [0.5,0.8], 'fac.std': [0.1, 0.1], ..., 'n_samples': [10, 10]}
 
     for dir_name in res_dirs:
@@ -150,6 +154,8 @@ def main():
 
         results['_config'].append(config)
         results['path'].append(os.path.basename(dir_name[:-1]))
+        # fname = pathlib.Path(dir_name[:-1])
+        # results['ctime'].append(fname.stat().st_ctime)
         for k in results.keys():
             if k != '_config' and k != 'path':
                 if k in this_results.keys():
