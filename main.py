@@ -9,7 +9,8 @@ parser.add_argument('--epochs', default=50, type=int)
 parser.add_argument('--model', default='forward', type=str, choices=['beta_shapes', 'beta_celeb', 'forward', 'rgrvae', 'dip_vae_i', 'dip_vae_ii',
                                                                      'beta_forward', 'dforward', 'lie_group', 'lie_group_action', 'lie_group_action_simple',
                                                                      'lie_group_rl', 'factor_vae', 'factor_conv_vae', 'dip_conv_vae_i', 'dip_conv_vae_ii',
-                                                                     'uneven_vae', 'uneven_facvae', 'uneven_dip_vae_i', 'uneven_dip_vae_ii'])
+                                                                     'uneven_vae', 'uneven_facvae', 'uneven_dip_vae_i', 'uneven_dip_vae_ii',
+                                                                     'diffdim_vae_64'])
 parser.add_argument('--dataset', default='flatland', type=str, choices=['flatland', 'dsprites', 'teapot', 'teapot_nocolor', 'shapes3d'])
 parser.add_argument('--fixed_shape', default=None, type=int, help='Fixed shape in dsprites. None for not fixed.')
 parser.add_argument('--data-path', default=None, type=str, help='Path to dataset root')
@@ -106,6 +107,17 @@ parser.add_argument('--factor_vae_gamma', default=6.4, type=float, help='The gam
 # DIP-VAE
 parser.add_argument('--lambda_d', default=1, type=float, help='The lambda_d in DIP vae.')
 parser.add_argument('--lambda_od', default=10, type=float, help='The lambda_od in DIP vae.')
+
+# DiffDim-VAE
+parser.add_argument('--lpips_net', default='alex', type=str, help='The lpips net type.')
+parser.add_argument('--var_sample_scale', default=0.05, type=float, help='The var scale in diffdim loss.')
+parser.add_argument('--norm_on_depth', default=False, type=_str_to_bool, help='If normalize on depth in diffdim loss.')
+parser.add_argument('--sensor_used_layers', default=5, type=int, help='The number of used lpips layers in diffdim loss.')
+parser.add_argument('--norm_lambda', default=0., type=float, help='The norm lambda in diffdim loss.')
+parser.add_argument('--use_norm_mask', default=True, type=_str_to_bool, help='If use norm mask in cos_fn in diffdim loss.')
+parser.add_argument('--diff_lambda', default=1, type=float, help='The main lambda of diffdim loss.')
+parser.add_argument('--diff_capacity_leadin', default=None, type=int, help='Diff loss capacity leadin')
+parser.add_argument('--diff_capacity', default=None, type=float, help='Diff Capacity')
 
 args = parser.parse_args()
 

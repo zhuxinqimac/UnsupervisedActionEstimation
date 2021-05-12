@@ -10,6 +10,7 @@ from models.lie_vae_rl import lie_rl_group_vae
 from models.uneven_vae import UnevenVAE
 from models.uneven_facvae import UnevenFacVAE
 from models.uneven_dipvae import UnevenDIPVAE
+from models.diffdim_vae import diffdim_vae_64
 
 models = {
     'beta_shapes': BetaShapes,
@@ -32,4 +33,5 @@ models = {
     'uneven_facvae': UnevenFacVAE,
     'uneven_dip_vae_i': UnevenDIPVAE,
     'uneven_dip_vae_ii': UnevenDIPVAE,
+    'diffdim_vae_64': diffdim_vae_64,
 }

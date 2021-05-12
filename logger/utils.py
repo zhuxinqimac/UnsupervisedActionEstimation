@@ -17,6 +17,11 @@ def mean_log_list(log_list):
             except:
                 warnings.warn('Failed to combine metric ({}) for tb'.format(k))
 
+    # out = {}
+    # for k, v in main_log.items():
+        # if len(v)>0:
+            # print(k+':', v)
+            # out[k] = torch.stack(v, 0).float().mean(0)
     out = {k: torch.stack(v, 0).float().mean(0) for k, v in main_log.items() if len(v) > 0}
     return out
 
