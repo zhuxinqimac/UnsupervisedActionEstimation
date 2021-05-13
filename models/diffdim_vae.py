@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Thu 13 May 2021 21:53:14 AEST
+# --- Last Modified: Thu 13 May 2021 22:15:42 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -137,7 +137,7 @@ class DiffDimVAE(VAE):
         b_half, h, w = norm.size()
         norm_viewed = norm.view(b_half, h * w)
         numerator = norm_viewed - norm_viewed.min(dim=1, keepdim=True)[0]
-        denominator = norm_viewed.max(dim=1, keepdim=True)[0] - norm_viewed.min(dim=1, keepdim=True)[0]
+        denominator = norm_viewed.max(dim=1, keepdim=True)[0] - norm_viewed.min(dim=1, keepdim=True)[0] + 1e-6
         # print('numerator.shape:', numerator.shape)
         # print('denominator.shape:', denominator.shape)
         mask = (numerator / denominator).view(b_half, h, w)
@@ -219,7 +219,7 @@ class DiffDimVAE(VAE):
 
         for i, norm in enumerate(norm_ls):
             numerator = norm - real_min.view(b_half, 1, 1)
-            denominator = (real_max - real_min).view(b_half, 1, 1)
+            denominator = (real_max - real_min).view(b_half, 1, 1) + 1e-6
             mask = (numerator / denominator) # (b_half, hi, wi)
             norm_mask_ls.append(mask)
         return norm_ls, norm_mask_ls
