@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Thu 13 May 2021 21:34:19 AEST
+# --- Last Modified: Thu 13 May 2021 21:37:09 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -85,8 +85,8 @@ class DiffDimVAE(VAE):
         state = self.make_state(batch_nb, x_hat, x, y, mu, lv, z)
 
         loss = loss_recons + beta_kl
+        logs = {}
         if self.diff_lambda != 0:
-            logs = {}
             loss_diff, logs = self.get_diff_loss(x_all_hat, logs)
             loss_diff, logs = self.diff_control_capacity(loss_diff, self.global_step, logs)
             loss += loss_diff * self.diff_lambda
