@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Thu 13 May 2021 23:58:47 AEST
+# --- Last Modified: Fri 14 May 2021 00:25:27 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -84,7 +84,7 @@ class DiffDimVAE(VAE):
         batch_size = x.size(0)
 
         logs = {}
-        if self.diff_lambda != 0 and self.training:
+        if self.diff_lambda != 0:
             mu, lv = self.unwrap(self.encode(x))
             z = self.reparametrise(mu, lv)
 
@@ -101,9 +101,10 @@ class DiffDimVAE(VAE):
             logs.update({'metric/diff_loss': loss_diff})
             loss_diff *= self.diff_lambda
 
-            self.diff_opt.zero_grad()
-            loss_diff.backward()
-            self.diff_opt.step()
+            if self.training:
+                self.diff_opt.zero_grad()
+                loss_diff.backward()
+                self.diff_opt.step()
 
         mu, lv = self.unwrap(self.encode(x))
         z = self.reparametrise(mu, lv)
