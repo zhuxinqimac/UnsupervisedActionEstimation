@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Thu 13 May 2021 18:55:48 AEST
+# --- Last Modified: Thu 13 May 2021 21:34:19 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -84,14 +84,16 @@ class DiffDimVAE(VAE):
         beta_kl = self.control_capacity(total_kl, self.global_step, self.anneal)
         state = self.make_state(batch_nb, x_hat, x, y, mu, lv, z)
 
-        logs = {}
-        loss_diff, logs = self.get_diff_loss(x_all_hat, logs)
-        loss_diff, logs = self.diff_control_capacity(loss_diff, self.global_step, logs)
+        loss = loss_recons + beta_kl
+        if self.diff_lambda != 0:
+            logs = {}
+            loss_diff, logs = self.get_diff_loss(x_all_hat, logs)
+            loss_diff, logs = self.diff_control_capacity(loss_diff, self.global_step, logs)
+            loss += loss_diff * self.diff_lambda
+            logs.update({'metric/diff_loss': loss_diff})
 
-        loss = loss_recons + beta_kl + loss_diff * self.diff_lambda
-
-        tensorboard_logs = {'metric/loss': loss, 'metric/recon_loss': loss_recons, 'metric/total_kl': total_kl,
-                            'metric/beta_kl': beta_kl, 'metric/diff_loss': loss_diff}
+        tensorboard_logs = {'metric/loss': loss, 'metric/recon_loss': loss_recons,
+                            'metric/total_kl': total_kl, 'metric/beta_kl': beta_kl}
         tensorboard_logs.update(logs)
 
         self.global_step += 1
