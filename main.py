@@ -122,6 +122,7 @@ parser.add_argument('--diff_capacity', default=None, type=float, help='Diff Capa
 parser.add_argument('--train_lpips', default=False, type=_str_to_bool, help='If train lpips in diffdim loss.')
 parser.add_argument('--use_dynamic_scale', default=False, type=_str_to_bool, help='If use dynamic scale in diffdim loss.')
 parser.add_argument('--detach_qpn', default=False, type=_str_to_bool, help='If detach q, pos and neg in diffdim loss.')
+parser.add_argument('--aux_opt_type', default='decoder_first', type=str, help='The auxiliary optimizer type.')
 
 args = parser.parse_args()
 

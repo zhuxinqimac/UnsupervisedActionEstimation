@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Thu 13 May 2021 22:15:42 AEST
+# --- Last Modified: Thu 13 May 2021 23:58:47 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -18,7 +18,7 @@ import math
 import torch
 import numpy as np
 import lpips
-from torch import nn
+from torch import nn, optim
 import torch.nn.functional as F
 from models.vae import VAE
 from models.beta import Flatten, View
@@ -58,6 +58,17 @@ class DiffDimVAE(VAE):
                         isinstance(p, nn.ConvTranspose2d):
                     torch.nn.init.xavier_uniform_(p.weight)
 
+        print(list(self.decoder.parameters())[0].shape)
+        self.aux_opt_type = args.aux_opt_type
+        if self.aux_opt_type == 'decoder_first':
+            self.diff_opt = optim.Adam(list(self.decoder.parameters())[:1], lr=1e-4)
+        elif self.aux_opt_type == 'encoder_last':
+            self.diff_opt = optim.Adam(list(self.encoder.parameters())[-1:], lr=1e-4)
+        elif self.aux_opt_type == 'both':
+            self.diff_opt = optim.Adam(list(self.encoder.parameters())[-1:]+list(self.decoder.parameters())[:1], lr=1e-4)
+        else:
+            raise ValueError('Unknown aux_opt_type:', self.aux_opt_type)
+
     def diff_control_capacity(self, loss_diff, global_step, logs):
         if self.diff_capacity is not None:
             leadin = 1e5 if self.diff_capacity_leadin is None else self.diff_capacity_leadin
@@ -72,16 +83,31 @@ class DiffDimVAE(VAE):
         x, y = batch
         batch_size = x.size(0)
 
+        logs = {}
+        if self.diff_lambda != 0 and self.training:
+            mu, lv = self.unwrap(self.encode(x))
+            z = self.reparametrise(mu, lv)
+
+            z_q, z_pos, z_neg = self.get_q_pos_neg(z)
+
+            if self.detach_qpn:
+                z_all = torch.cat([z, z_q.detach(), z_pos.detach(), z_neg.detach()], dim=0)
+            else:
+                z_all = torch.cat([z, z_q, z_pos, z_neg], dim=0)
+            x_all_hat = self.decode(z_all)
+
+            loss_diff, logs = self.get_diff_loss(x_all_hat, logs)
+            loss_diff, logs = self.diff_control_capacity(loss_diff, self.global_step, logs)
+            logs.update({'metric/diff_loss': loss_diff})
+            loss_diff *= self.diff_lambda
+
+            self.diff_opt.zero_grad()
+            loss_diff.backward()
+            self.diff_opt.step()
+
         mu, lv = self.unwrap(self.encode(x))
         z = self.reparametrise(mu, lv)
-
-        z_q, z_pos, z_neg = self.get_q_pos_neg(z)
-        if self.detach_qpn:
-            z_all = torch.cat([z, z_q.detach(), z_pos.detach(), z_neg.detach()], dim=0)
-        else:
-            z_all = torch.cat([z, z_q, z_pos, z_neg], dim=0)
-        x_all_hat = self.decode(z_all)
-        x_hat = x_all_hat[:batch_size]
+        x_hat = self.decode(z)
 
         loss_recons = loss_fn(x_hat, x)
         total_kl = self.compute_kl(mu, lv, mean=False)
@@ -89,12 +115,6 @@ class DiffDimVAE(VAE):
         state = self.make_state(batch_nb, x_hat, x, y, mu, lv, z)
 
         loss = loss_recons + beta_kl
-        logs = {}
-        if self.diff_lambda != 0:
-            loss_diff, logs = self.get_diff_loss(x_all_hat, logs)
-            loss_diff, logs = self.diff_control_capacity(loss_diff, self.global_step, logs)
-            loss += loss_diff * self.diff_lambda
-            logs.update({'metric/diff_loss': loss_diff})
 
         tensorboard_logs = {'metric/loss': loss, 'metric/recon_loss': loss_recons,
                             'metric/total_kl': total_kl, 'metric/beta_kl': beta_kl}
@@ -195,8 +215,12 @@ class DiffDimVAE(VAE):
         loss_diff, logs = self.extract_loss_L_by_maskdiff(diff_q, diff_pos, diff_neg, mask_q, mask_pos, mask_neg, idx, logs)
         # training_stats.report('Loss/M/loss_diff_{}'.format(idx), loss_diff)
         logs.update({'metric/M_loss_diff_{}'.format(idx): loss_diff})
-        loss_norm = sum([(norm**2).sum(dim=[1,2]) / mask.sum(dim=[1,2]) \
-                         for norm, mask in [(norm_q, mask_q), (norm_pos, mask_pos), (norm_neg, mask_neg)]])
+        if self.use_norm_mask:
+            loss_norm = sum([(norm**2).sum(dim=[1,2]) / (mask.sum(dim=[1,2]) + 1e-6) \
+                             for norm, mask in [(norm_q, mask_q), (norm_pos, mask_pos), (norm_neg, mask_neg)]])
+        else:
+            loss_norm = sum([(norm**2).sum(dim=[1,2]) \
+                             for norm, mask in [(norm_q, mask_q), (norm_pos, mask_pos), (norm_neg, mask_neg)]])
         loss_norm = loss_norm.mean()
         # training_stats.report('Loss/M/loss_norm_{}'.format(idx), loss_norm)
         logs.update({'metric/M_loss_norm_{}'.format(idx): loss_norm})
@@ -235,8 +259,12 @@ class DiffDimVAE(VAE):
     def extract_depth_norm_loss(self, norm_q_ls, norm_pos_ls, norm_neg_ls, mask_q_ls, mask_pos_ls, mask_neg_ls):
         loss = 0
         for i, norm_q in enumerate(norm_q_ls):
-            loss_norm = sum([(norm**2).sum(dim=[1,2])/mask.sum(dim=[1,2]) for norm, mask in \
-                             [(norm_q, mask_q_ls[i]), (norm_pos_ls[i], mask_pos_ls[i]), (norm_neg_ls[i], mask_neg_ls[i])]])
+            if self.use_norm_mask:
+                loss_norm = sum([(norm**2).sum(dim=[1,2])/(mask.sum(dim=[1,2]) + 1e-6) for norm, mask in \
+                                 [(norm_q, mask_q_ls[i]), (norm_pos_ls[i], mask_pos_ls[i]), (norm_neg_ls[i], mask_neg_ls[i])]])
+            else:
+                loss_norm = sum([(norm**2).sum(dim=[1,2]) for norm, mask in \
+                                 [(norm_q, mask_q_ls[i]), (norm_pos_ls[i], mask_pos_ls[i]), (norm_neg_ls[i], mask_neg_ls[i])]])
             loss += loss_norm
         return loss
 
