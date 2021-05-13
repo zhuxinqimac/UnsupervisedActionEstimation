@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Thu 13 May 2021 21:37:09 AEST
+# --- Last Modified: Thu 13 May 2021 21:53:14 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -47,6 +47,7 @@ class DiffDimVAE(VAE):
         self.diff_capacity_leadin = args.diff_capacity_leadin
         self.diff_capacity = args.diff_capacity
         self.use_dynamic_scale = args.use_dynamic_scale
+        self.detach_qpn = args.detach_qpn
         if args.xav_init:
             for p in self.encoder.modules():
                 if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
@@ -75,7 +76,10 @@ class DiffDimVAE(VAE):
         z = self.reparametrise(mu, lv)
 
         z_q, z_pos, z_neg = self.get_q_pos_neg(z)
-        z_all = torch.cat([z, z_q, z_pos, z_neg], dim=0)
+        if self.detach_qpn:
+            z_all = torch.cat([z, z_q.detach(), z_pos.detach(), z_neg.detach()], dim=0)
+        else:
+            z_all = torch.cat([z, z_q, z_pos, z_neg], dim=0)
         x_all_hat = self.decode(z_all)
         x_hat = x_all_hat[:batch_size]
 
@@ -95,6 +99,7 @@ class DiffDimVAE(VAE):
         tensorboard_logs = {'metric/loss': loss, 'metric/recon_loss': loss_recons,
                             'metric/total_kl': total_kl, 'metric/beta_kl': beta_kl}
         tensorboard_logs.update(logs)
+        print('tensorboard_logs:', tensorboard_logs)
 
         self.global_step += 1
         return {'loss': loss, 'out': tensorboard_logs, 'state': state}
