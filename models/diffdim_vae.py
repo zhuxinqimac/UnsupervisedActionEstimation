@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Thu 13 May 2021 00:25:28 AEST
+# --- Last Modified: Thu 13 May 2021 18:55:48 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -30,17 +30,23 @@ class DiffDimVAE(VAE):
     def __init__(self, encoder, decoder, args):
         super().__init__(encoder, decoder, args.beta, args.capacity, args.capacity_leadin)
         self.latents = args.latents
-        self.lpips = lpips.LPIPS(net=args.lpips_net, lpips=False).net
+        self.train_lpips = args.train_lpips
+        if self.train_lpips:
+            self.lpips = lpips.LPIPS(net=args.lpips_net, lpips=False, eval_mode=False, pnet_tune=True).net
+        else:
+            self.lpips = lpips.LPIPS(net=args.lpips_net, lpips=False).net
         self.var_sample_scale = args.var_sample_scale
         self.norm_on_depth = args.norm_on_depth
         self.S_L = 7 if self.lpips == 'squeeze' else 5
         self.sensor_used_layers = args.sensor_used_layers
         self.norm_lambda = args.norm_lambda
         self.use_norm_mask = args.use_norm_mask
+        self.divide_mask_sum = args.divide_mask_sum
         self.cos_fn = nn.CosineSimilarity(dim=1)
         self.diff_lambda = args.diff_lambda
         self.diff_capacity_leadin = args.diff_capacity_leadin
         self.diff_capacity = args.diff_capacity
+        self.use_dynamic_scale = args.use_dynamic_scale
         if args.xav_init:
             for p in self.encoder.modules():
                 if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
@@ -104,9 +110,13 @@ class DiffDimVAE(VAE):
         pos_neg_idx = self.sample_batch_pos_neg_dirs(batch_size // 2, self.latents).to(z.device) # (b//2, 2)
         pos_onehot = F.one_hot(pos_neg_idx[:, 0], self.latents) # (b//2, latents)
         neg_onehot = F.one_hot(pos_neg_idx[:, 1], self.latents) # (b//2, latents)
-        z_q = self.var_sample_scale * pos_onehot + z[:batch_size//2]
-        z_pos = self.var_sample_scale * pos_onehot + z[batch_size//2:]
-        z_neg = self.var_sample_scale * neg_onehot + z[batch_size//2:] # (b//2, latents)
+        if self.use_dynamic_scale:
+            var_sample_scale = torch.rand(pos_onehot.size(), device=z.device) * self.var_sample_scale
+        else:
+            var_sample_scale = self.var_sample_scale
+        z_q = var_sample_scale * pos_onehot + z[:batch_size//2]
+        z_pos = var_sample_scale * pos_onehot + z[batch_size//2:]
+        z_neg = var_sample_scale * neg_onehot + z[batch_size//2:] # (b//2, latents)
         return z_q, z_pos, z_neg
 
     def get_diff_loss(self, imgs_all, logs):
@@ -146,8 +156,12 @@ class DiffDimVAE(VAE):
         if self.use_norm_mask:
             cos_sim_pos = self.cos_fn(diff_q, diff_pos) * mask_pos_comb
             cos_sim_neg = self.cos_fn(diff_q, diff_neg) * mask_neg_comb
-            loss_pos = (-cos_sim_pos**2).sum(dim=[1,2]) / mask_pos_comb.sum(dim=[1,2]) # (0.5batch)
-            loss_neg = (cos_sim_neg**2).sum(dim=[1,2]) / mask_neg_comb.sum(dim=[1,2])
+            if self.divide_mask_sum:
+                loss_pos = (-cos_sim_pos**2).sum(dim=[1,2]) / mask_pos_comb.sum(dim=[1,2]) # (0.5batch)
+                loss_neg = (cos_sim_neg**2).sum(dim=[1,2]) / mask_neg_comb.sum(dim=[1,2])
+            else:
+                loss_pos = (-cos_sim_pos**2).sum(dim=[1,2]) # (0.5batch)
+                loss_neg = (cos_sim_neg**2).sum(dim=[1,2])
         else:
             cos_sim_pos = self.cos_fn(diff_q, diff_pos)
             cos_sim_neg = self.cos_fn(diff_q, diff_neg)

@@ -115,9 +115,12 @@ parser.add_argument('--norm_on_depth', default=False, type=_str_to_bool, help='I
 parser.add_argument('--sensor_used_layers', default=5, type=int, help='The number of used lpips layers in diffdim loss.')
 parser.add_argument('--norm_lambda', default=0., type=float, help='The norm lambda in diffdim loss.')
 parser.add_argument('--use_norm_mask', default=True, type=_str_to_bool, help='If use norm mask in cos_fn in diffdim loss.')
+parser.add_argument('--divide_mask_sum', default=True, type=_str_to_bool, help='If divide the maks_sum in cos_fn in diffdim loss.')
 parser.add_argument('--diff_lambda', default=1, type=float, help='The main lambda of diffdim loss.')
 parser.add_argument('--diff_capacity_leadin', default=None, type=int, help='Diff loss capacity leadin')
 parser.add_argument('--diff_capacity', default=None, type=float, help='Diff Capacity')
+parser.add_argument('--train_lpips', default=False, type=_str_to_bool, help='If train lpips in diffdim loss.')
+parser.add_argument('--use_dynamic_scale', default=False, type=_str_to_bool, help='If use dynamic scale in diffdim loss.')
 
 args = parser.parse_args()
 
