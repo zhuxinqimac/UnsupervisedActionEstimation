@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Fri 14 May 2021 00:25:27 AEST
+# --- Last Modified: Fri 14 May 2021 22:09:30 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -48,6 +48,7 @@ class DiffDimVAE(VAE):
         self.diff_capacity = args.diff_capacity
         self.use_dynamic_scale = args.use_dynamic_scale
         self.detach_qpn = args.detach_qpn
+        self.use_norm_as_mask = args.use_norm_as_mask
         if args.xav_init:
             for p in self.encoder.modules():
                 if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
@@ -155,13 +156,16 @@ class DiffDimVAE(VAE):
     def get_norm_mask(self, diff):
         # norm = torch.linalg.norm(diff, dim=1) # (0.5batch, h, w)
         norm = torch.norm(diff, dim=1) # (0.5batch, h, w)
-        b_half, h, w = norm.size()
-        norm_viewed = norm.view(b_half, h * w)
-        numerator = norm_viewed - norm_viewed.min(dim=1, keepdim=True)[0]
-        denominator = norm_viewed.max(dim=1, keepdim=True)[0] - norm_viewed.min(dim=1, keepdim=True)[0] + 1e-6
-        # print('numerator.shape:', numerator.shape)
-        # print('denominator.shape:', denominator.shape)
-        mask = (numerator / denominator).view(b_half, h, w)
+        if self.use_norm_as_mask:
+            mask = norm.clone()
+        else:
+            b_half, h, w = norm.size()
+            norm_viewed = norm.view(b_half, h * w)
+            numerator = norm_viewed - norm_viewed.min(dim=1, keepdim=True)[0]
+            denominator = norm_viewed.max(dim=1, keepdim=True)[0] - norm_viewed.min(dim=1, keepdim=True)[0] + 1e-6
+            # print('numerator.shape:', numerator.shape)
+            # print('denominator.shape:', denominator.shape)
+            mask = (numerator / denominator).view(b_half, h, w)
         return norm, mask
 
     def extract_diff_L(self, feats_i):
@@ -210,8 +214,8 @@ class DiffDimVAE(VAE):
         norm_q, mask_q = self.get_norm_mask(diff_q) # (0.5batch, h, w), (0.5batch, h, w)
         norm_pos, mask_pos = self.get_norm_mask(diff_pos)
         norm_neg, mask_neg = self.get_norm_mask(diff_neg)
-        assert mask_q.max() == 1
-        assert mask_q.min() == 0
+        # assert mask_q.max() == 1
+        # assert mask_q.min() == 0
 
         loss_diff, logs = self.extract_loss_L_by_maskdiff(diff_q, diff_pos, diff_neg, mask_q, mask_pos, mask_neg, idx, logs)
         # training_stats.report('Loss/M/loss_diff_{}'.format(idx), loss_diff)
@@ -243,10 +247,13 @@ class DiffDimVAE(VAE):
         real_min = torch.cat(min_ls, dim=1).min(dim=1)[0]
 
         for i, norm in enumerate(norm_ls):
-            numerator = norm - real_min.view(b_half, 1, 1)
-            denominator = (real_max - real_min).view(b_half, 1, 1) + 1e-6
-            mask = (numerator / denominator) # (b_half, hi, wi)
-            norm_mask_ls.append(mask)
+            if self.use_norm_as_mask:
+                norm_mask_ls.append(norm.clone())
+            else:
+                numerator = norm - real_min.view(b_half, 1, 1)
+                denominator = (real_max - real_min).view(b_half, 1, 1) + 1e-6
+                mask = (numerator / denominator) # (b_half, hi, wi)
+                norm_mask_ls.append(mask)
         return norm_ls, norm_mask_ls
 
     def extract_depth_diff_loss(self, diff_q_ls, diff_pos_ls, diff_neg_ls, mask_q_ls, mask_pos_ls, mask_neg_ls, logs):
@@ -288,7 +295,7 @@ class DiffDimVAE(VAE):
             norm_pos_ls, mask_pos_ls = self.extract_norm_mask_wdepth(diff_pos_ls)
             norm_neg_ls, mask_neg_ls = self.extract_norm_mask_wdepth(diff_neg_ls)
             loss_diff, logs = self.extract_depth_diff_loss(diff_q_ls, diff_pos_ls, diff_neg_ls,
-                                                     mask_q_ls, mask_pos_ls, mask_neg_ls, logs)
+                                                           mask_q_ls, mask_pos_ls, mask_neg_ls, logs)
             loss_diff = loss_diff.mean()
             # training_stats.report('Loss/M/loss_diff', loss_diff)
             logs.update({'metric/M_loss_diff': loss_diff})

@@ -123,6 +123,7 @@ parser.add_argument('--train_lpips', default=False, type=_str_to_bool, help='If 
 parser.add_argument('--use_dynamic_scale', default=False, type=_str_to_bool, help='If use dynamic scale in diffdim loss.')
 parser.add_argument('--detach_qpn', default=False, type=_str_to_bool, help='If detach q, pos and neg in diffdim loss.')
 parser.add_argument('--aux_opt_type', default='decoder_first', type=str, help='The auxiliary optimizer type.')
+parser.add_argument('--use_norm_as_mask', default=False, type=_str_to_bool, help='If use norm as mask.')
 
 args = parser.parse_args()
 
