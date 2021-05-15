@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Fri 14 May 2021 22:09:30 AEST
+# --- Last Modified: Sat 15 May 2021 16:04:10 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -100,7 +100,6 @@ class DiffDimVAE(VAE):
             loss_diff, logs = self.get_diff_loss(x_all_hat, logs)
             loss_diff, logs = self.diff_control_capacity(loss_diff, self.global_step, logs)
             logs.update({'metric/diff_loss': loss_diff})
-            loss_diff *= self.diff_lambda
 
             if self.training:
                 self.diff_opt.zero_grad()
