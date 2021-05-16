@@ -34,7 +34,7 @@ class MetricAggregator:
         self.metrics = self._init_metrics()
 
     def _init_metrics(self):
-        fac = FactorVAEMetric(self.val_ds, num_train=2000, num_eval=1000, bs=64, paired=self.paired, fixed_shape=self.fixed_shape, n_var_est=2000)
+        fac = FactorVAEMetric(self.val_ds, num_train=10000, num_eval=5000, bs=64, paired=self.paired, fixed_shape=self.fixed_shape, n_var_est=10000)
         hig = BetaVAEMetric(self.val_ds, num_points=1000, paired=self.paired, fixed_shape=self.fixed_shape)
         mig = MigMetric(self.val_ds, num_points=1000, paired=self.paired)
         dci = DciMetric(self.val_ds, num_points=1000, paired=self.paired)
