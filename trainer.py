@@ -88,7 +88,7 @@ def run(args):
         out = {}
 
     if args.evaluate or args.end_metrics:
-        log_list = MetricAggregator(trainds.dataset, valds.dataset, 1000, model, paired, args.latents, ntrue_actions=args.latents, final=True, fixed_shape=args.fixed_shape)()
+        log_list = MetricAggregator(trainds, valds, 1000, model, paired, args.latents, ntrue_actions=args.latents, final=True, fixed_shape=args.fixed_shape)()
         mean_logs = mean_log_list([log_list, ])
         logger.write_dict(mean_logs, model.global_step+1) if logger is not None else None
 
