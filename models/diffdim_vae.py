@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Mon 17 May 2021 14:48:16 AEST
+# --- Last Modified: Mon 17 May 2021 16:14:24 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -221,7 +221,7 @@ class DiffDimVAE(VAE):
         loss_diff, logs = self.extract_loss_L_by_maskdiff(diff_q, diff_pos, diff_neg, mask_q, mask_pos, mask_neg, idx, logs)
         # training_stats.report('Loss/M/loss_diff_{}'.format(idx), loss_diff)
         logs.update({'metric/M_loss_diff_{}'.format(idx): loss_diff})
-        if self.use_norm_mask:
+        if self.divide_mask_sum:
             loss_norm = sum([(norm**2).sum(dim=[1,2]) / (mask.sum(dim=[1,2]) + 1e-6) \
                              for norm, mask in [(norm_q, mask_q), (norm_pos, mask_pos), (norm_neg, mask_neg)]])
         else:
@@ -268,7 +268,7 @@ class DiffDimVAE(VAE):
     def extract_depth_norm_loss(self, norm_q_ls, norm_pos_ls, norm_neg_ls, mask_q_ls, mask_pos_ls, mask_neg_ls):
         loss = 0
         for i, norm_q in enumerate(norm_q_ls):
-            if self.use_norm_mask:
+            if self.divide_mask_sum:
                 loss_norm = sum([(norm**2).sum(dim=[1,2])/(mask.sum(dim=[1,2]) + 1e-6) for norm, mask in \
                                  [(norm_q, mask_q_ls[i]), (norm_pos_ls[i], mask_pos_ls[i]), (norm_neg_ls[i], mask_neg_ls[i])]])
             else:
