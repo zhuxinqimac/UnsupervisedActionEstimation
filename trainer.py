@@ -64,7 +64,8 @@ def run(args):
         loss_fn = lambda x_hat, x: (x_hat.sigmoid() - x).pow(2).sum() / x.shape[0]
     else:
         loss_fn = lambda x_hat, x: F.binary_cross_entropy_with_logits(x_hat.view(x_hat.size(0), -1), x.view(x.size(0), -1), reduction='sum') / x.shape[0]
-    metric_list = MetricAggregator(valds.dataset, 1000, model, paired) if args.metrics else None
+    metric_list = MetricAggregator(
+        trainds, trainds, 1000, model, paired, args.latents, ntrue_actions=args.latents, final=True, fixed_shape=args.fixed_shape) if args.metrics else None
 
     version = None
     if args.log_path is not None and args.load_model:
@@ -88,7 +89,7 @@ def run(args):
         out = {}
 
     if args.evaluate or args.end_metrics:
-        log_list = MetricAggregator(trainds, valds, 1000, model, paired, args.latents, ntrue_actions=args.latents, final=True, fixed_shape=args.fixed_shape)()
+        log_list = MetricAggregator(trainds, trainds, 1000, model, paired, args.latents, ntrue_actions=args.latents, final=True, fixed_shape=args.fixed_shape)()
         mean_logs = mean_log_list([log_list, ])
         logger.write_dict(mean_logs, model.global_step+1) if logger is not None else None
 

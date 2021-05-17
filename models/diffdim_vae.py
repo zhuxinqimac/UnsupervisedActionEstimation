@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Sat 15 May 2021 16:04:10 AEST
+# --- Last Modified: Mon 17 May 2021 14:48:16 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -105,6 +105,8 @@ class DiffDimVAE(VAE):
                 self.diff_opt.zero_grad()
                 loss_diff.backward()
                 self.diff_opt.step()
+
+        self.zero_grad()
 
         mu, lv = self.unwrap(self.encode(x))
         z = self.reparametrise(mu, lv)

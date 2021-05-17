@@ -40,7 +40,7 @@ def split(func):  # Splits a dataset into a train and val set
     def splitter(args):
         ds = func(args)
         lengths = int(len(ds) * (1 - args.split)), int(len(ds)) - int(len(ds) * (1 - args.split))
-        train_ds, val_ds = random_split(ds, lengths) if args.split > 0 else (ds, ds)
+        train_ds, val_ds = random_split(ds, lengths) if args.split > 0 else (ds, None)
         return train_ds, val_ds
 
     return splitter
@@ -57,8 +57,11 @@ def fix_data_path(func):  # Sets the datapath to that in _default_paths if it is
 def set_to_loader(trainds, valds, args):
     trainloader = DataLoader(trainds, batch_size=args.batch_size, num_workers=7, shuffle=args.shuffle, drop_last=False,
                              pin_memory=True)
-    valloader = DataLoader(valds, batch_size=args.batch_size, num_workers=7, shuffle=False, drop_last=False,
-                           pin_memory=True)
+    if valds is not None:
+        valloader = DataLoader(valds, batch_size=args.batch_size, num_workers=7, shuffle=False, drop_last=False,
+                               pin_memory=True)
+    else:
+        valloader = None
     return trainloader, valloader
 
 

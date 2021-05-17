@@ -5,7 +5,10 @@ import torch
 
 def train(args, epochs, trainloader, valloader, model, optimiser, loss_fn, logger=None, metric_list=None, cuda=True):
     pb = tqdm(total=epochs, unit_scale=True, smoothing=0.1, ncols=70)
-    update_frac = 1./float(len(trainloader) + len(valloader))
+    if valloader is not None:
+        update_frac = 1./float(len(trainloader) + len(valloader))
+    else:
+        update_frac = 1./float(len(trainloader))
     global_step = 0 if not hasattr(args, 'global_step') or args.global_step is None else args.global_step
     loss, val_loss = torch.tensor(0), torch.tensor(0)
     mean_logs = {}
@@ -25,9 +28,15 @@ def train(args, epochs, trainloader, valloader, model, optimiser, loss_fn, logge
             pb.set_postfix_str('ver:{}, loss:{:.3f}, val_loss:{:.3f}, lr:{}'.format(logger.get_version(), loss.item(), val_loss.item(), pgs))
             global_step += 1
 
+        if valloader is not None:
+            valloader_tmp = valloader
+        else:
+            valloader_tmp = trainloader
         log_list = []
         with torch.no_grad():
-            for t, data in enumerate(valloader):
+            for t, data in enumerate(valloader_tmp):
+                if t > len(valloader_tmp) * 0.1:
+                    break
                 model.eval()
                 to_cuda(data) if cuda else None
                 out = model.val_step(data, t, loss_fn)
