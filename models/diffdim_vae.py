@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Mon 17 May 2021 16:14:24 AEST
+# --- Last Modified: Tue 18 May 2021 00:56:31 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -70,6 +70,13 @@ class DiffDimVAE(VAE):
         else:
             raise ValueError('Unknown aux_opt_type:', self.aux_opt_type)
 
+        self.diff_avg_lerp_rate = args.diff_avg_lerp_rate
+        self.lerp_lambda = args.lerp_lambda
+        if self.lerp_lambda != 0:
+            with torch.no_grad():
+                outs = self.lpips.forward(torch.zeros(1, args.nc, 64, 64))
+            self.diff_mask_avg_ls = [torch.zeros_like(x, device='cuda:0').repeat(self.latents, 1, 1, 1) for x in outs] # list of (z_dim, ci, hi, wi)
+
     def diff_control_capacity(self, loss_diff, global_step, logs):
         if self.diff_capacity is not None:
             leadin = 1e5 if self.diff_capacity_leadin is None else self.diff_capacity_leadin
@@ -89,7 +96,7 @@ class DiffDimVAE(VAE):
             mu, lv = self.unwrap(self.encode(x))
             z = self.reparametrise(mu, lv)
 
-            z_q, z_pos, z_neg = self.get_q_pos_neg(z)
+            z_q, z_pos, z_neg, pos_neg_idx = self.get_q_pos_neg(z)
 
             if self.detach_qpn:
                 z_all = torch.cat([z, z_q.detach(), z_pos.detach(), z_neg.detach()], dim=0)
@@ -97,7 +104,7 @@ class DiffDimVAE(VAE):
                 z_all = torch.cat([z, z_q, z_pos, z_neg], dim=0)
             x_all_hat = self.decode(z_all)
 
-            loss_diff, logs = self.get_diff_loss(x_all_hat, logs)
+            loss_diff, logs = self.get_diff_loss(x_all_hat, pos_neg_idx, logs)
             loss_diff, logs = self.diff_control_capacity(loss_diff, self.global_step, logs)
             logs.update({'metric/diff_loss': loss_diff})
 
@@ -147,11 +154,11 @@ class DiffDimVAE(VAE):
         z_q = var_sample_scale * pos_onehot + z[:batch_size//2]
         z_pos = var_sample_scale * pos_onehot + z[batch_size//2:]
         z_neg = var_sample_scale * neg_onehot + z[batch_size//2:] # (b//2, latents)
-        return z_q, z_pos, z_neg
+        return z_q, z_pos, z_neg, pos_neg_idx
 
-    def get_diff_loss(self, imgs_all, logs):
+    def get_diff_loss(self, imgs_all, pos_neg_idx, logs):
         outs_all = self.lpips.forward(imgs_all.sigmoid()*2-1)
-        loss_diff, logs = self.extract_diff_loss(outs_all, logs)
+        loss_diff, logs = self.extract_diff_loss(outs_all, pos_neg_idx, logs)
         return loss_diff, logs
 
     def get_norm_mask(self, diff):
@@ -193,8 +200,8 @@ class DiffDimVAE(VAE):
                 loss_pos = (-cos_sim_pos**2).sum(dim=[1,2]) / mask_pos_comb.sum(dim=[1,2]) # (0.5batch)
                 loss_neg = (cos_sim_neg**2).sum(dim=[1,2]) / mask_neg_comb.sum(dim=[1,2])
             else:
-                loss_pos = (-cos_sim_pos**2).sum(dim=[1,2]) # (0.5batch)
-                loss_neg = (cos_sim_neg**2).sum(dim=[1,2])
+                loss_pos = (-cos_sim_pos**2).mean(dim=[1,2]) # (0.5batch)
+                loss_neg = (cos_sim_neg**2).mean(dim=[1,2])
         else:
             cos_sim_pos = self.cos_fn(diff_q, diff_pos)
             cos_sim_neg = self.cos_fn(diff_q, diff_neg)
@@ -209,7 +216,8 @@ class DiffDimVAE(VAE):
         loss = loss_pos + loss_neg # (0.5batch)
         return loss, logs
 
-    def extract_loss_L(self, feats_i, idx, logs):
+    def extract_loss_L(self, feats_i, idx, pos_neg_idx, logs):
+        # pos_neg_idx: (b//2, 2)
         diff_q, diff_pos, diff_neg = self.extract_diff_L(feats_i)
 
         norm_q, mask_q = self.get_norm_mask(diff_q) # (0.5batch, h, w), (0.5batch, h, w)
@@ -225,12 +233,16 @@ class DiffDimVAE(VAE):
             loss_norm = sum([(norm**2).sum(dim=[1,2]) / (mask.sum(dim=[1,2]) + 1e-6) \
                              for norm, mask in [(norm_q, mask_q), (norm_pos, mask_pos), (norm_neg, mask_neg)]])
         else:
-            loss_norm = sum([(norm**2).sum(dim=[1,2]) \
+            loss_norm = sum([(norm**2).mean(dim=[1,2]) \
                              for norm, mask in [(norm_q, mask_q), (norm_pos, mask_pos), (norm_neg, mask_neg)]])
         loss_norm = loss_norm.mean()
         # training_stats.report('Loss/M/loss_norm_{}'.format(idx), loss_norm)
         logs.update({'metric/M_loss_norm_{}'.format(idx): loss_norm})
-        return loss_diff + self.norm_lambda * loss_norm, logs
+
+        loss_lerp, logs = self.compute_lerp_loss(diff_q, diff_pos, diff_neg, pos_neg_idx, feats_i, logs)
+        # logs.update({'metric/M_loss_lerp_{}'.format(idx): loss_lerp})
+
+        return loss_diff + self.norm_lambda * loss_norm + self.lerp_lambda * loss_lerp, logs
 
     def extract_norm_mask_wdepth(self, diff_ls):
         norm_mask_ls, norm_ls, max_ls, min_ls = [], [], [], []
@@ -257,12 +269,33 @@ class DiffDimVAE(VAE):
                 norm_mask_ls.append(mask)
         return norm_ls, norm_mask_ls
 
-    def extract_depth_diff_loss(self, diff_q_ls, diff_pos_ls, diff_neg_ls, mask_q_ls, mask_pos_ls, mask_neg_ls, logs):
+    def compute_lerp_loss(self, diff_q, diff_pos, diff_neg, pos_neg_idx, feats_i, logs):
+        loss_lerp = 0.
+        if self.lerp_lambda != 0:
+            # print('using lerp loss')
+            b_half = pos_neg_idx.size(0)
+            norm_size = self.diff_mask_avg_ls[feats_i].size() # (z_dim, ci, hi, wi)
+            for (diff, diff_idx) in [(diff_q, pos_neg_idx[:,0]), (diff_pos, pos_neg_idx[:,0]), (diff_neg, pos_neg_idx[:,1])]:
+                diff_mask_avg_tmp = torch.gather(self.diff_mask_avg_ls[feats_i], 0, diff_idx.view(b_half, 1, 1, 1).repeat(1, *norm_size[1:]))
+                diff_mask_avg_tmp = diff_mask_avg_tmp.lerp(diff, self.diff_avg_lerp_rate)
+                loss_lerp += (diff_mask_avg_tmp - diff).square().mean()
+                for j in range(min(diff_mask_avg_tmp.size(0), 20)):
+                    self.diff_mask_avg_ls[feats_i][diff_idx[j]].copy_(
+                        self.diff_mask_avg_ls[feats_i][diff_idx[j]].lerp(diff_mask_avg_tmp[j], 0.5).detach())
+            # training_stats.report('Loss/M/loss_lerp_{}'.format(feats_i), loss_lerp)
+            logs.update({'metric/M_loss_lerp_{}'.format(feats_i): loss_lerp})
+            # print('self.diff_mask_avg_ls[feats_i].shape:', self.diff_mask_avg_ls[feats_i].shape)
+            # print('diff_mask_avg_tmp.shape:', diff_mask_avg_tmp.shape)
+        return loss_lerp, logs
+
+    def extract_depth_diff_loss(self, diff_q_ls, diff_pos_ls, diff_neg_ls, mask_q_ls, mask_pos_ls, mask_neg_ls, pos_neg_idx, logs):
         loss = 0
         for i, diff_q_i in enumerate(diff_q_ls):
             loss_i, logs = self.extract_loss_L_by_maskdiff(diff_q_i, diff_pos_ls[i], diff_neg_ls[i],
                                                            mask_q_ls[i], mask_pos_ls[i], mask_neg_ls[i], i, logs)
-            loss += loss_i
+            # Norm mask moving avg loss:
+            loss_lerp, logs = self.compute_lerp_loss(diff_q_i, diff_pos_ls[i], diff_neg_ls[i], pos_neg_idx, i, logs)
+            loss += loss_i + self.lerp_lambda * loss_lerp
         return loss, logs
 
     def extract_depth_norm_loss(self, norm_q_ls, norm_pos_ls, norm_neg_ls, mask_q_ls, mask_pos_ls, mask_neg_ls):
@@ -272,19 +305,19 @@ class DiffDimVAE(VAE):
                 loss_norm = sum([(norm**2).sum(dim=[1,2])/(mask.sum(dim=[1,2]) + 1e-6) for norm, mask in \
                                  [(norm_q, mask_q_ls[i]), (norm_pos_ls[i], mask_pos_ls[i]), (norm_neg_ls[i], mask_neg_ls[i])]])
             else:
-                loss_norm = sum([(norm**2).sum(dim=[1,2]) for norm, mask in \
+                loss_norm = sum([(norm**2).mean(dim=[1,2]) for norm, mask in \
                                  [(norm_q, mask_q_ls[i]), (norm_pos_ls[i], mask_pos_ls[i]), (norm_neg_ls[i], mask_neg_ls[i])]])
             loss += loss_norm
         return loss
 
-    def extract_diff_loss(self, outs, logs):
+    def extract_diff_loss(self, outs, pos_neg_idx, logs):
         if not self.norm_on_depth:
             loss = 0
         else:
             diff_q_ls, diff_pos_ls, diff_neg_ls = [], [], []
         for kk in range(self.S_L - self.sensor_used_layers, self.S_L):
             if not self.norm_on_depth:
-                loss_kk, logs = self.extract_loss_L(outs[kk], kk, logs)
+                loss_kk, logs = self.extract_loss_L(outs[kk], kk, pos_neg_idx, logs)
                 loss += loss_kk
             else:
                 diff_q_kk, diff_pos_kk, diff_neg_kk = self.extract_diff_L(outs[kk])
@@ -296,7 +329,8 @@ class DiffDimVAE(VAE):
             norm_pos_ls, mask_pos_ls = self.extract_norm_mask_wdepth(diff_pos_ls)
             norm_neg_ls, mask_neg_ls = self.extract_norm_mask_wdepth(diff_neg_ls)
             loss_diff, logs = self.extract_depth_diff_loss(diff_q_ls, diff_pos_ls, diff_neg_ls,
-                                                           mask_q_ls, mask_pos_ls, mask_neg_ls, logs)
+                                                           mask_q_ls, mask_pos_ls, mask_neg_ls,
+                                                           pos_neg_idx, logs)
             loss_diff = loss_diff.mean()
             # training_stats.report('Loss/M/loss_diff', loss_diff)
             logs.update({'metric/M_loss_diff': loss_diff})
