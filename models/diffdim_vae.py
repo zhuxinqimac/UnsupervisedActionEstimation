@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Tue 18 May 2021 00:56:31 AEST
+# --- Last Modified: Thu 20 May 2021 03:59:34 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -239,7 +239,7 @@ class DiffDimVAE(VAE):
         # training_stats.report('Loss/M/loss_norm_{}'.format(idx), loss_norm)
         logs.update({'metric/M_loss_norm_{}'.format(idx): loss_norm})
 
-        loss_lerp, logs = self.compute_lerp_loss(diff_q, diff_pos, diff_neg, pos_neg_idx, feats_i, logs)
+        loss_lerp, logs = self.compute_lerp_loss(diff_q, diff_pos, diff_neg, pos_neg_idx, idx, logs)
         # logs.update({'metric/M_loss_lerp_{}'.format(idx): loss_lerp})
 
         return loss_diff + self.norm_lambda * loss_norm + self.lerp_lambda * loss_lerp, logs
@@ -269,22 +269,22 @@ class DiffDimVAE(VAE):
                 norm_mask_ls.append(mask)
         return norm_ls, norm_mask_ls
 
-    def compute_lerp_loss(self, diff_q, diff_pos, diff_neg, pos_neg_idx, feats_i, logs):
+    def compute_lerp_loss(self, diff_q, diff_pos, diff_neg, pos_neg_idx, feats_idx, logs):
         loss_lerp = 0.
         if self.lerp_lambda != 0:
             # print('using lerp loss')
             b_half = pos_neg_idx.size(0)
-            norm_size = self.diff_mask_avg_ls[feats_i].size() # (z_dim, ci, hi, wi)
+            norm_size = self.diff_mask_avg_ls[feats_idx].size() # (z_dim, ci, hi, wi)
             for (diff, diff_idx) in [(diff_q, pos_neg_idx[:,0]), (diff_pos, pos_neg_idx[:,0]), (diff_neg, pos_neg_idx[:,1])]:
-                diff_mask_avg_tmp = torch.gather(self.diff_mask_avg_ls[feats_i], 0, diff_idx.view(b_half, 1, 1, 1).repeat(1, *norm_size[1:]))
+                diff_mask_avg_tmp = torch.gather(self.diff_mask_avg_ls[feats_idx], 0, diff_idx.view(b_half, 1, 1, 1).repeat(1, *norm_size[1:]))
                 diff_mask_avg_tmp = diff_mask_avg_tmp.lerp(diff, self.diff_avg_lerp_rate)
                 loss_lerp += (diff_mask_avg_tmp - diff).square().mean()
                 for j in range(min(diff_mask_avg_tmp.size(0), 20)):
-                    self.diff_mask_avg_ls[feats_i][diff_idx[j]].copy_(
-                        self.diff_mask_avg_ls[feats_i][diff_idx[j]].lerp(diff_mask_avg_tmp[j], 0.5).detach())
-            # training_stats.report('Loss/M/loss_lerp_{}'.format(feats_i), loss_lerp)
-            logs.update({'metric/M_loss_lerp_{}'.format(feats_i): loss_lerp})
-            # print('self.diff_mask_avg_ls[feats_i].shape:', self.diff_mask_avg_ls[feats_i].shape)
+                    self.diff_mask_avg_ls[feats_idx][diff_idx[j]].copy_(
+                        self.diff_mask_avg_ls[feats_idx][diff_idx[j]].lerp(diff_mask_avg_tmp[j], 0.5).detach())
+            # training_stats.report('Loss/M/loss_lerp_{}'.format(feats_idx), loss_lerp)
+            logs.update({'metric/M_loss_lerp_{}'.format(feats_idx): loss_lerp})
+            # print('self.diff_mask_avg_ls[feats_idx].shape:', self.diff_mask_avg_ls[feats_idx].shape)
             # print('diff_mask_avg_tmp.shape:', diff_mask_avg_tmp.shape)
         return loss_lerp, logs
 
