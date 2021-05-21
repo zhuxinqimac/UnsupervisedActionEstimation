@@ -8,7 +8,7 @@
 
 # --- File Name: own_lpips.py
 # --- Creation Date: 25-04-2021
-# --- Last Modified: Mon 26 Apr 2021 16:55:07 AEST
+# --- Last Modified: Fri 21 May 2021 15:07:22 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -36,7 +36,7 @@ class OwnLPIPS(lpips.LPIPS):
         super().__init__(pretrained, net, version, lpips, spatial, pnet_rand,
                          pnet_tune, use_dropout, model_path, eval_mode, verbose)
 
-    def forward(self, in0, in1, distance=True, direction=False, retPerLayer=False, normalize=False, spatial=False):
+    def forward(self, in0, in1, distance=True, direction=False, retPerLayer=False, normalize=False, spatial=False, target_layer=None):
         assert not(distance and direction)
         if normalize: # turn on this flag if input is [0,1] so it can be adjusted to [-1, +1]
             in0 = 2 * in0  - 1
@@ -77,8 +77,16 @@ class OwnLPIPS(lpips.LPIPS):
                 feats0[kk], feats1[kk] = outs0[kk], outs1[kk]
                 diffs[kk] = feats0[kk]-feats1[kk]
             if spatial:
-                res = [interpolate(diffs[kk], out_HW=(16, 16)) for kk in range(self.L)]
+                if target_layer:
+                    res = interpolate(diffs[target_layer], out_HW=(16, 16))
+                else:
+                    res = [interpolate(diffs[kk], out_HW=(16, 16)) for kk in range(self.L)]
             else:
-                res = [spatial_average(diffs[kk], keepdim=True).squeeze() for kk in range(self.L)]
-            res = torch.cat(res, dim=1)
+                if target_layer:
+                    res = spatial_average(diffs[target_layer], keepdim=True).squeeze()
+                else:
+                    res = [spatial_average(diffs[kk], keepdim=True).squeeze() for kk in range(self.L)]
+
+            if not target_layer:
+                res = torch.cat(res, dim=1)
             return res

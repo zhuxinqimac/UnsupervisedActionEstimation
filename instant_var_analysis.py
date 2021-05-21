@@ -8,7 +8,7 @@
 
 # --- File Name: instant_var_analysis.py
 # --- Creation Date: 24-04-2021
-# --- Last Modified: Tue 27 Apr 2021 00:06:03 AEST
+# --- Last Modified: Fri 21 May 2021 21:57:11 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -20,6 +20,7 @@ import os
 import pdb
 import numpy as np
 import torch
+import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
@@ -68,13 +69,13 @@ def l1_var(x1, x2, args):
 def lpips_vgg_var(x1, x2, args):
     with torch.no_grad():
         dist = loss_fn_vgg.forward(x1, x2, distance=not(args.direction), direction=args.direction,
-                                   normalize=True, spatial=args.spatial).squeeze() # (b, (...))
+                                   normalize=True, spatial=args.spatial, target_layer=args.target_layer).squeeze() # (b, (...))
     return dist
 
 def lpips_alex_var(x1, x2, args):
     with torch.no_grad():
         dist = loss_fn_alex.forward(x1, x2, distance=not(args.direction), direction=args.direction,
-                                    normalize=True, spatial=args.spatial).squeeze() # (b, (...))
+                                    normalize=True, spatial=args.spatial, target_layer=args.target_layer).squeeze() # (b, (...))
     return dist
 
 metrics = {'l2': l2_var, 'l1': l1_var, 'lpips_alex': lpips_alex_var,
@@ -141,9 +142,9 @@ def compute_inst_x_var_by_metric_for_all_anchors(var_metric, model, args):
 
 def create_title(args, var_metric):
     if args.command == 'inst-var-all-dim':
-        title = '{}:{}'.format(args.command, var_metric)
+        title = '{}'.format(args.command)
     elif args.command == 'inst-var-one-dim':
-        title = '{}:{}:{}'.format(args.command, var_metric, args.concept)
+        title = '{}:{}'.format(args.command, args.concept)
     return title
 
 def get_rel_cos_diff(x_var):
@@ -178,7 +179,7 @@ def plot_hist_all_sets(in_dict, args):
     fig.tight_layout()
     plt.show()
 
-def get_cos_grid(x_var):
+def get_cos_grid(x_var, args):
     '''
     x_var: (n_dims/n_anchors, n_samples, feat)
     return: cos similarity between x_var and its mean.
@@ -218,26 +219,37 @@ def get_cos_grid(x_var):
         # == Mask by Norm
         n_dims, h, w = x_feat_norm.size()
         x_feat_norm_viewed = x_feat_norm.view(n_dims, h * w)
+
+        # Mask from max and min
         numerator = x_feat_norm_viewed - x_feat_norm_viewed.min(dim=1, keepdim=True)[0]
         denominator = x_feat_norm_viewed.max(dim=1, keepdim=True)[0] - x_feat_norm_viewed.min(dim=1, keepdim=True)[0]
         print('numerator.shape:', numerator.shape)
         print('denominator.shape:', denominator.shape)
-        x_mask = (numerator / denominator).view(n_dims, h, w)
+        x_mask = (numerator / (denominator)).view(n_dims, h, w)
         assert x_mask.max() == 1
         assert x_mask.min() == 0
+
+        # Mask from softmax
+        # x_mask = F.softmax(x_feat_norm * 100, dim=-1).view(n_dims, h, w)
+
+        # Mask from norm
+        # x_mask = x_feat_norm.clone().view(n_dims, h, w) - x_feat_norm_viewed.max(dim=1)[0].view(n_dims, 1, 1)
 
         x_mask1 = x_mask[:, np.newaxis, ...]
         x_mask2 = x_mask[np.newaxis, ...]
         x_outer_mask = x_mask1 * x_mask2 # (n_dims, n_dims, (h, w))
         assert x_outer_mask.size() == res.size()
-        res = res * x_outer_mask
 
-        res = res.sum(dim=[2, 3]) / (x_outer_mask.sum(dim=[2, 3]) + 1e-4)
+        if args.use_mask:
+            res = res * x_outer_mask
+            res = res.sum(dim=[2, 3]) / (x_outer_mask.sum(dim=[2, 3]) + 1e-6)
+        else:
+            res = res.mean(dim=[2, 3])
     return res.detach().cpu().numpy()
 
 def plot_cos_grid(in_dict, args):
     x_var = in_dict.x_var # (n_dims/n_anchors, n_samples, feat, (h, w))
-    x_val = np.absolute(get_cos_grid(x_var)) # (n_dims, n_dims)
+    x_val = np.absolute(get_cos_grid(x_var, args)) # (n_dims, n_dims)
     print('x_val.shape:', x_val.shape)
     # print('x_val:', x_var) # (n_dims, n_dims)
 
@@ -247,7 +259,7 @@ def plot_cos_grid(in_dict, args):
     else:
         assert x_val.shape[0] == args.n_anchors
         ticklabels = list(range(args.n_anchors))
-    fig, ax = plt.subplots(figsize=(10,10))
+    fig, ax = plt.subplots(figsize=(8,8))
     im = ax.imshow(x_val, vmin=0, vmax=1)
     ax.set_xticks(np.arange(x_val.shape[0]))
     ax.set_yticks(np.arange(x_val.shape[0]))
@@ -255,10 +267,10 @@ def plot_cos_grid(in_dict, args):
     ax.set_yticklabels(ticklabels)
 
     # Loop over data dimensions and create text annotations.
-    for i in range(len(ticklabels)):
-        for j in range(len(ticklabels)):
-            text = ax.text(j, i, round(x_val[i, j], 2), ha="center", va="center", color="w")
-    fig.colorbar(im)
+    # for i in range(len(ticklabels)):
+        # for j in range(len(ticklabels)):
+            # text = ax.text(j, i, round(x_val[i, j], 2), ha="center", va="center", color="w")
+    # fig.colorbar(im)
 
     ax.set_title('Heatmap:'+create_title(args, in_dict.var_metric))
     fig.tight_layout()
@@ -282,6 +294,8 @@ def main():
     parser_all_dim.add_argument('--direction', help='If compute direction var in lpips.', type=_str_to_bool, default=False)
     parser_all_dim.add_argument('--spatial', help='If compute direction var with spatial in lpips.', type=_str_to_bool, default=False)
     parser_all_dim.add_argument('--cos_grid', help='If plot cosine grid instead of histogram.', type=_str_to_bool, default=False)
+    parser_all_dim.add_argument('--use_mask', help='If use mask in cosine grid.', type=_str_to_bool, default=True)
+    parser_all_dim.add_argument('--target_layer', help='The target layer in lpips.', type=int, default=None)
 
     parser_one_dim = subparsers.add_parser('inst-var-one-dim', help='Plot along one latent dimensions.')
     parser_one_dim.add_argument('--ckpt_path', help='Model checkpoint_path.', type=str, default='/mnt/hdd/repo_results/test')
@@ -298,6 +312,8 @@ def main():
     parser_one_dim.add_argument('--direction', help='If compute direction var in lpips.', type=_str_to_bool, default=False)
     parser_one_dim.add_argument('--spatial', help='If compute direction var with spatial in lpips.', type=_str_to_bool, default=False)
     parser_one_dim.add_argument('--cos_grid', help='If plot cosine grid instead of histogram.', type=_str_to_bool, default=False)
+    parser_one_dim.add_argument('--use_mask', help='If use mask in cosine grid.', type=_str_to_bool, default=True)
+    parser_one_dim.add_argument('--target_layer', help='The target layer in lpips.', type=int, default=None)
 
     args = parser.parse_args()
 

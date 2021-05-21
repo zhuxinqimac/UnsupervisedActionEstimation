@@ -8,7 +8,7 @@
 
 # --- File Name: diffdim_vae.py
 # --- Creation Date: 12-05-2021
-# --- Last Modified: Thu 20 May 2021 03:59:34 AEST
+# --- Last Modified: Sat 22 May 2021 00:37:13 AEST
 # --- Author: Xinqi Zhu
 # .<.<.<.<.<.<.<.<.<.<.<.<.<.<.<.<
 """
@@ -49,6 +49,8 @@ class DiffDimVAE(VAE):
         self.use_dynamic_scale = args.use_dynamic_scale
         self.detach_qpn = args.detach_qpn
         self.use_norm_as_mask = args.use_norm_as_mask
+        self.neg_lambda = args.neg_lambda
+        self.train_with_vae = args.train_with_vae
         if args.xav_init:
             for p in self.encoder.modules():
                 if isinstance(p, nn.Conv2d) or isinstance(p, nn.Linear) or \
@@ -108,12 +110,11 @@ class DiffDimVAE(VAE):
             loss_diff, logs = self.diff_control_capacity(loss_diff, self.global_step, logs)
             logs.update({'metric/diff_loss': loss_diff})
 
-            if self.training:
+            if not self.train_with_vae and self.training:
                 self.diff_opt.zero_grad()
                 loss_diff.backward()
                 self.diff_opt.step()
-
-        self.zero_grad()
+                self.zero_grad()
 
         mu, lv = self.unwrap(self.encode(x))
         z = self.reparametrise(mu, lv)
@@ -124,7 +125,10 @@ class DiffDimVAE(VAE):
         beta_kl = self.control_capacity(total_kl, self.global_step, self.anneal)
         state = self.make_state(batch_nb, x_hat, x, y, mu, lv, z)
 
-        loss = loss_recons + beta_kl
+        if not self.train_with_vae:
+            loss = loss_recons + beta_kl
+        else:
+            loss = loss_recons + beta_kl + loss_diff
 
         tensorboard_logs = {'metric/loss': loss, 'metric/recon_loss': loss_recons,
                             'metric/total_kl': total_kl, 'metric/beta_kl': beta_kl}
@@ -213,7 +217,7 @@ class DiffDimVAE(VAE):
         loss_neg = loss_neg.mean()
         # training_stats.report('Loss/M/loss_diff_neg_{}'.format(idx), loss_neg)
         logs.update({'metric/M_loss_diff_neg_{}'.format(idx): loss_neg})
-        loss = loss_pos + loss_neg # (0.5batch)
+        loss = loss_pos + self.neg_lambda * loss_neg # (0.5batch)
         return loss, logs
 
     def extract_loss_L(self, feats_i, idx, pos_neg_idx, logs):

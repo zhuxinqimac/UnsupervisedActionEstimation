@@ -126,6 +126,8 @@ parser.add_argument('--aux_opt_type', default='decoder_first', type=str, help='T
 parser.add_argument('--use_norm_as_mask', default=False, type=_str_to_bool, help='If use norm as mask.')
 parser.add_argument('--diff_avg_lerp_rate', default=0.01, type=float, help='The lerp rate for diff_avg.')
 parser.add_argument('--lerp_lambda', default=0., type=float, help='Lerp lambda.')
+parser.add_argument('--neg_lambda', default=1., type=float, help='negative samples lambda.')
+parser.add_argument('--train_with_vae', default=False, type=_str_to_bool, help='If train diffdim with vae.')
 
 args = parser.parse_args()
 
