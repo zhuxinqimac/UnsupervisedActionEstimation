@@ -24,6 +24,8 @@ def run(args):
     if args.evaluate:
         old_args.data_path, old_args.log_path = args.data_path, args.log_path
         old_args.evaluate, old_args.visualise, old_args.metrics = args.evaluate, args.visualise, args.metrics
+        old_args.eval_dataset, old_args.eval_data_path = args.eval_dataset, args.eval_data_path
+        old_args.split = args.split
         args = old_args
 
     args.nc, args.factors = dataset_meta[args.dataset]['nc'], dataset_meta[args.dataset]['factors']
@@ -89,6 +91,13 @@ def run(args):
         out = {}
 
     if args.evaluate or args.end_metrics:
+        if args.eval_dataset and args.eval_data_path:
+            del trainds
+            del trainloader
+            del valloader
+            args.dataset = args.eval_dataset
+            args.data_path = args.eval_data_path
+            trainds, _ = datasets[args.eval_dataset](args)
         log_list = MetricAggregator(trainds, trainds, 1000, model, paired, args.latents, ntrue_actions=args.latents, final=True, fixed_shape=args.fixed_shape)()
         mean_logs = mean_log_list([log_list, ])
         logger.write_dict(mean_logs, model.global_step+1) if logger is not None else None

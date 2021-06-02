@@ -11,6 +11,7 @@ from models.uneven_vae import UnevenVAE
 from models.uneven_facvae import UnevenFacVAE
 from models.uneven_dipvae import UnevenDIPVAE
 from models.diffdim_vae import diffdim_vae_64
+from models.dimvar_vae import dimvar_vae_64
 
 models = {
     'beta_shapes': BetaShapes,
@@ -34,4 +35,5 @@ models = {
     'uneven_dip_vae_i': UnevenDIPVAE,
     'uneven_dip_vae_ii': UnevenDIPVAE,
     'diffdim_vae_64': diffdim_vae_64,
+    'dimvar_vae_64': dimvar_vae_64,
 }

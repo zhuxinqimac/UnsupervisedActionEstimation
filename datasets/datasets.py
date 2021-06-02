@@ -7,25 +7,29 @@ from datasets.flatland_ds import ForwardVAEDS
 from datasets.dsprites import PairSprites
 from datasets.teapot_ds import TeapotDS
 from datasets.shapes3d import PairShapes3D
+from datasets.shapes3d_paired import PairedShapes3dStylegan
+from datasets.dsprites_paired import PairedDSpritesStylegan
 
 
 def sprites_transforms(_):
     return ToTensor(), ToTensor()
 
-
 def forward_ds_transforms(_):
     lam = lambda x: torch.from_numpy(np.array(x)).float()
     return Lambda(lam), Lambda(lam)
-
 
 def teapot_transforms(_):
     lam = lambda x: torch.from_numpy(np.array(x)).float()
     return Lambda(lam), Lambda(lam)
 
-
 def shapes3d_transforms(_):
     return ToTensor(), ToTensor()
 
+def stylegan3d_transforms(_):
+    return ToTensor(), ToTensor()
+
+def stylegandsp_transforms(_):
+    return ToTensor(), ToTensor()
 
 transforms = {
     'flatland': forward_ds_transforms,
@@ -33,6 +37,8 @@ transforms = {
     'teapot': teapot_transforms,
     'teapot_nocolor': teapot_transforms,
     'shapes3d': shapes3d_transforms,
+    'stylegan3d': stylegan3d_transforms,
+    'stylegandsp': stylegandsp_transforms,
 }
 
 
@@ -111,6 +117,20 @@ def shapes3d(args):
                      noise_name=args.noise_name, output_targets=output_targets)
     return ds
 
+@split
+@fix_data_path
+def stylegan3d(args):
+    train_transform, test_transform = transforms[args.dataset](args)
+    ds = PairedShapes3dStylegan(args.data_path, transform=train_transform)
+    return ds
+
+@split
+@fix_data_path
+def stylegandsp(args):
+    train_transform, test_transform = transforms[args.dataset](args)
+    ds = PairedDSpritesStylegan(args.data_path, transform=train_transform)
+    return ds
+
 
 _default_paths = {
     'flatland': '',
@@ -118,6 +138,8 @@ _default_paths = {
     'teapot': '',
     'teapot_nocolor': '',
     'shapes3d': '',
+    'stylegan3d': '',
+    'stylegandsp': '',
 }
 
 datasets = {
@@ -126,6 +148,8 @@ datasets = {
     'teapot': teapot_ds,
     'teapot_nocolor': teapot_ds,
     'shapes3d': shapes3d,
+    'stylegan3d': stylegan3d,
+    'stylegandsp': stylegandsp,
 }
 
 dataset_meta = {
@@ -134,4 +158,6 @@ dataset_meta = {
     'teapot': {'nc': 3, 'factors': 4, 'max_classes': 40},
     'teapot_nocolor': {'nc': 3, 'factors': 3, 'max_classes': 40},
     'shapes3d': {'nc': 3, 'factors': 6, 'max_classes': 40},
+    'stylegan3d': {'nc': 3, 'factors': 6, 'max_classes': 10},
+    'stylegandsp': {'nc': 1, 'factors': 5, 'max_classes': 10},
 }

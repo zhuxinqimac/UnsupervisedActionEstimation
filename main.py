@@ -10,8 +10,8 @@ parser.add_argument('--model', default='forward', type=str, choices=['beta_shape
                                                                      'beta_forward', 'dforward', 'lie_group', 'lie_group_action', 'lie_group_action_simple',
                                                                      'lie_group_rl', 'factor_vae', 'factor_conv_vae', 'dip_conv_vae_i', 'dip_conv_vae_ii',
                                                                      'uneven_vae', 'uneven_facvae', 'uneven_dip_vae_i', 'uneven_dip_vae_ii',
-                                                                     'diffdim_vae_64'])
-parser.add_argument('--dataset', default='flatland', type=str, choices=['flatland', 'dsprites', 'teapot', 'teapot_nocolor', 'shapes3d'])
+                                                                     'diffdim_vae_64', 'dimvar_vae_64'])
+parser.add_argument('--dataset', default='flatland', type=str, choices=['flatland', 'dsprites', 'teapot', 'teapot_nocolor', 'shapes3d', 'stylegan3d', 'stylegandsp'])
 parser.add_argument('--fixed_shape', default=None, type=int, help='Fixed shape in dsprites. None for not fixed.')
 parser.add_argument('--data-path', default=None, type=str, help='Path to dataset root')
 parser.add_argument('--latents', default=4, type=int, help='Number of latents')
@@ -128,6 +128,10 @@ parser.add_argument('--diff_avg_lerp_rate', default=0.01, type=float, help='The 
 parser.add_argument('--lerp_lambda', default=0., type=float, help='Lerp lambda.')
 parser.add_argument('--neg_lambda', default=1., type=float, help='negative samples lambda.')
 parser.add_argument('--train_with_vae', default=False, type=_str_to_bool, help='If train diffdim with vae.')
+
+# DimVar-VAE
+parser.add_argument('--eval_dataset', default=None, type=str, choices=['flatland', 'dsprites', 'teapot', 'teapot_nocolor', 'shapes3d'])
+parser.add_argument('--eval_data_path', default=None, type=str)
 
 args = parser.parse_args()
 
